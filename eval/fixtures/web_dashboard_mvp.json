@@ -1,0 +1,20 @@
+{
+  "name": "web dashboard added during MVP",
+  "mode": "standard",
+  "source_description": "Fixture diff: web dashboard added during MVP",
+  "repository_context": "Git status:\n M pyproject.toml\n A src/tripwire_web/app.py",
+  "diff": "diff --git a/src/tripwire_web/app.py b/src/tripwire_web/app.py\nnew file mode 100644\n--- /dev/null\n+++ b/src/tripwire_web/app.py\n@@ -0,0 +1,7 @@\n+from fastapi import FastAPI\n+\n+app = FastAPI()\n+\n+@app.get('/reviews')\n+def reviews():\n+    return {'status': 'ok'}\n",
+  "must_contain": [
+    "Acceptable For Current Phase?"
+  ],
+  "must_contain_any": [
+    [
+      "Scope Creep",
+      "Architecture Drift",
+      "Strategic Inconsistency"
+    ]
+  ],
+  "must_not_contain": [
+    "No high-confidence strategic findings detected"
+  ]
+}

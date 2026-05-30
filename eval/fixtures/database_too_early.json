@@ -1,0 +1,20 @@
+{
+  "name": "database introduced during MVP",
+  "mode": "standard",
+  "source_description": "Fixture diff: database introduced during MVP",
+  "repository_context": "Git status:\n M pyproject.toml\n A src/tripwire/storage.py",
+  "diff": "diff --git a/src/tripwire/storage.py b/src/tripwire/storage.py\nnew file mode 100644\n--- /dev/null\n+++ b/src/tripwire/storage.py\n@@ -0,0 +1,8 @@\n+import sqlite3\n+\n+def connect():\n+    return sqlite3.connect('tripwire.db')\n+\n+def save_review(review):\n+    database = connect()\n+    database.execute('insert into reviews values (?)', [review])\n",
+  "must_contain": [
+    "Acceptable For Current Phase?"
+  ],
+  "must_contain_any": [
+    [
+      "Premature Abstraction",
+      "Architecture Drift",
+      "Operational Risk"
+    ]
+  ],
+  "must_not_contain": [
+    "No high-confidence strategic findings detected"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "doctrine-consistent CLI change",
+  "mode": "standard",
+  "source_description": "Fixture diff: doctrine-consistent CLI change",
+  "repository_context": "Git status:\n M src/tripwire/cli.py",
+  "diff": "diff --git a/src/tripwire/cli.py b/src/tripwire/cli.py\n--- a/src/tripwire/cli.py\n+++ b/src/tripwire/cli.py\n@@ -1,3 +1,7 @@\n+def add_prompt_only_flag(parser):\n+    parser.add_argument('--prompt-only', action='store_true')\n+    return parser\n+\n def main():\n     pass\n",
+  "must_contain": [
+    "No high-confidence strategic findings detected"
+  ],
+  "must_not_contain": [
+    "Scope Creep",
+    "Economics Regression",
+    "Premature Abstraction"
+  ]
+}
