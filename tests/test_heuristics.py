@@ -1,14 +1,20 @@
 import unittest
 
 from tripwire.heuristics import local_findings
-from tripwire.models import ReviewInput, ReviewMode
+from tripwire.models import DoctrineDocument, ReviewInput, ReviewMode
 
 
-def make_input(diff: str) -> ReviewInput:
+TRIPWIRE_PHASE_DOCTRINE = DoctrineDocument(
+    "docs/current_phase.md",
+    "Tripwire is in MVP validation. Acceptable: command-line interface. Avoid: dashboards, web interfaces, databases.",
+)
+
+
+def make_input(diff: str, doctrine: tuple[DoctrineDocument, ...] = (TRIPWIRE_PHASE_DOCTRINE,)) -> ReviewInput:
     return ReviewInput(
         mode=ReviewMode.STANDARD,
         diff=diff,
-        doctrine=(),
+        doctrine=doctrine,
         repository_context="",
         source_description="Working tree git diff",
     )
@@ -21,6 +27,15 @@ class HeuristicTests(unittest.TestCase):
         self.assertTrue(findings)
         self.assertEqual(findings[0].category, "Scope Creep")
 
+    def test_does_not_apply_tripwire_scope_rule_without_supporting_doctrine(self):
+        doctrine = (
+            DoctrineDocument(
+                "docs/architecture.md",
+                "This project is a web decision-support app built with Next.js.",
+            ),
+        )
+
+        self.assertEqual(local_findings(make_input("+import { NextRequest } from 'next/server'", doctrine)), [])
 
     def test_ignores_empty_diff(self):
         self.assertEqual(local_findings(make_input("")), [])

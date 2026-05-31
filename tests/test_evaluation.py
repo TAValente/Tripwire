@@ -31,6 +31,12 @@ class EvaluationTests(unittest.TestCase):
             root = Path(directory)
             fixtures = root / "eval" / "fixtures"
             fixtures.mkdir(parents=True)
+            docs = root / "docs"
+            docs.mkdir()
+            (docs / "current_phase.md").write_text(
+                "Tripwire is in MVP validation. Acceptable: command-line interface. Avoid: dashboards, web interfaces.",
+                encoding="utf-8",
+            )
             (fixtures / "case.json").write_text(
                 """{
                   "name": "web case",

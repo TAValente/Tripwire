@@ -5,9 +5,40 @@ import re
 from .models import Finding, ReviewInput, ReviewMode
 
 
+def doctrine_text(review_input: ReviewInput) -> str:
+    return "\n\n".join(document.content for document in review_input.doctrine).lower()
+
+
+def doctrine_supports_cli_mvp_limits(text: str) -> bool:
+    return (
+        "tripwire" in text
+        and "mvp validation" in text
+        and "command-line interface" in text
+        and ("dashboards" in text or "web interfaces" in text)
+    )
+
+
+def doctrine_supports_database_mvp_limit(text: str) -> bool:
+    return "tripwire" in text and "mvp validation" in text and "databases" in text
+
+
+def doctrine_supports_ai_cost_controls(text: str) -> bool:
+    return (
+        (
+            "openai" in text
+            or "llm" in text
+            or "model calls" in text
+            or "ai usage" in text
+            or "api costs" in text
+        )
+        and ("cost" in text or "token" in text or "bounded" in text or "summaries over raw data" in text)
+    )
+
+
 def local_findings(review_input: ReviewInput) -> list[Finding]:
     diff = review_input.diff
     findings: list[Finding] = []
+    doctrine = doctrine_text(review_input)
 
     if not diff.strip() and review_input.mode != ReviewMode.ARCHITECTURE:
         return findings
@@ -16,7 +47,9 @@ def local_findings(review_input: ReviewInput) -> list[Finding]:
         line[1:] for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++")
     )
 
-    if re.search(r"\b(fastapi|flask|django|react|vite|next|dashboard|websocket)\b", added_lines, re.I):
+    if doctrine_supports_cli_mvp_limits(doctrine) and re.search(
+        r"\b(fastapi|flask|django|react|vite|next|dashboard|websocket)\b", added_lines, re.I
+    ):
         findings.append(
             Finding(
                 title="MVP Scope May Be Expanding Beyond CLI Validation",
@@ -31,8 +64,14 @@ def local_findings(review_input: ReviewInput) -> list[Finding]:
             )
         )
 
-    if re.search(r"\b(openai|anthropic|llm|embedding|tokens|completion|responses)\b", added_lines, re.I) and not re.search(
-        r"\b(cache|budget|limit|quota|max_tokens|cost)\b", added_lines, re.I
+    if (
+        doctrine_supports_ai_cost_controls(doctrine)
+        and re.search(
+            r"\b(openai|anthropic|llm|embedding|tokens)\b|responses\.create|chat\.completions|/api/generate",
+            added_lines,
+            re.I,
+        )
+        and not re.search(r"\b(cache|budget|limit|quota|max_tokens|cost)\b", added_lines, re.I)
     ):
         findings.append(
             Finding(
@@ -42,13 +81,15 @@ def local_findings(review_input: ReviewInput) -> list[Finding]:
                 category="Economics Regression",
                 reviewer_persona="Economics Watchdog",
                 evidence="The diff appears to add AI-provider usage without nearby budgeting, caching, token limits, or cost controls.",
-                why_it_matters="Tripwire explicitly tracks unit economics regressions. Unbounded AI calls can make each review more expensive as repository size or usage grows.",
+                why_it_matters="The project doctrine explicitly tracks AI economics. Unbounded model usage can make each request more expensive as context size or usage grows.",
                 acceptable_for_current_phase="Questionable",
                 recommended_action="Document the expected cost envelope and add a bounded request strategy such as explicit token limits, input truncation, or a cache where appropriate.",
             )
         )
 
-    if re.search(r"\b(sqlalchemy|postgres|sqlite|migration|alembic|database|redis)\b", added_lines, re.I):
+    if doctrine_supports_database_mvp_limit(doctrine) and re.search(
+        r"\b(sqlalchemy|postgres|sqlite|migration|alembic|database|redis)\b", added_lines, re.I
+    ):
         findings.append(
             Finding(
                 title="Persistent Infrastructure Appears Before Core Review Quality Is Proven",
