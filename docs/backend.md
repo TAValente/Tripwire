@@ -70,7 +70,7 @@ Tripwire currently stores, locally by default:
 - raw output text
 - deterministic local guardrail findings
 
-Model-generated findings are stored in raw output text for now. A later structured-output pass will split model findings into `tripwire_findings` rows too.
+If the target repository has no doctrine docs, Tripwire stores the review output but does not store generic Tripwire-doctrine guardrail findings. Model-generated findings are stored in raw output text for now. A later structured-output pass will split model findings into `tripwire_findings` rows too.
 
 ## Learning Loop
 

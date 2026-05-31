@@ -26,6 +26,7 @@ class ReviewInput:
     repository_context: str
     source_description: str
     user_concerns: str = ""
+    missing_target_doctrine: bool = False
 
 
 @dataclass(frozen=True)

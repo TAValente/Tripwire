@@ -95,7 +95,7 @@ Review an open GitHub pull request directly:
 tripwire review-pr TAValente/Tripwire 12 --concerns "Watch for scope creep and model cost regressions."
 ```
 
-Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have Tripwire doctrine docs yet, it falls back to this repository's local doctrine docs.
+Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have doctrine docs, Tripwire does not fall back to its own doctrine; it emits a Concrete Improver explaining the minimum docs needed for useful review.
 
 Store a review:
 

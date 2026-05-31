@@ -113,18 +113,18 @@ def make_review_input(args: argparse.Namespace) -> ReviewInput:
     )
 
 
-def with_local_doctrine_fallback(review_input: ReviewInput, root: Path) -> ReviewInput:
+def mark_missing_target_doctrine(review_input: ReviewInput) -> ReviewInput:
     if review_input.doctrine:
         return review_input
-    local_doctrine = load_doctrine(root)
     return ReviewInput(
         mode=review_input.mode,
         diff=review_input.diff,
-        doctrine=local_doctrine,
+        doctrine=(),
         repository_context=review_input.repository_context
-        + "\n\nDoctrine source: generic local Tripwire doctrine fallback. The target repository did not expose Tripwire doctrine docs on the PR base branch.",
+        + "\n\nDoctrine source: none found on the target repository PR base branch.",
         source_description=review_input.source_description,
         user_concerns=review_input.user_concerns,
+        missing_target_doctrine=True,
     )
 
 
@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "review-pr":
         try:
             review_input = fetch_pr_review_input(args.repo, args.number, concerns=args.concerns)
-            review_input = with_local_doctrine_fallback(review_input, root)
+            review_input = mark_missing_target_doctrine(review_input)
             output = run_review(
                 review_input,
                 provider=args.provider,
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
                 selected_pr.number,
                 concerns=concerns,
             )
-            review_input = with_local_doctrine_fallback(review_input, root)
+            review_input = mark_missing_target_doctrine(review_input)
             output = run_review(
                 review_input,
                 provider=args.provider,
