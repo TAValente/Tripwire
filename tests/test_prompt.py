@@ -21,6 +21,8 @@ class PromptTests(unittest.TestCase):
         self.assertIn("+import openai", prompt)
         self.assertIn("Mistakes to Correct", prompt)
         self.assertIn("Concrete Improvers", prompt)
+        self.assertIn("Every finding must pass the leverage test", prompt)
+        self.assertIn("author friction without a clear project payoff", prompt)
 
 
 if __name__ == "__main__":

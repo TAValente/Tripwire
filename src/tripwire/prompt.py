@@ -59,6 +59,8 @@ Review discipline:
 
 - Prefer fewer high-confidence findings over many speculative findings.
 - In standard mode, return at most 3 findings.
+- Every finding must pass the leverage test: it should speed up the project, catch a meaningful oversight, reduce future rework, or otherwise contribute to project success.
+- Stay silent when feedback would mainly create ceremony, preference churn, or author friction without a clear project payoff.
 - A finding must identify a direct contradiction with doctrine, economics, architecture, phase guidance, or an existing decision.
 - Do not create findings merely because a change lacks extra documentation.
 - Do not create findings for CLI-only changes that support review, prompt inspection, diff loading, evals, or terminal output during the MVP phase.
