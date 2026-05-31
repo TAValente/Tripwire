@@ -21,6 +21,11 @@ def build_review_prompt(review_input: ReviewInput) -> str:
     doctrine = "\n\n".join(
         f"## {document.path}\n{document.content}" for document in review_input.doctrine
     )
+    concerns = (
+        f"\n# User Concerns\n\n{review_input.user_concerns}\n"
+        if review_input.user_concerns.strip()
+        else ""
+    )
 
     mode_instruction = {
         ReviewMode.STANDARD: (
@@ -65,6 +70,7 @@ Review discipline:
 # Repository Context
 
 {review_input.repository_context}
+{concerns}
 
 # Review Target
 

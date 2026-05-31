@@ -12,6 +12,7 @@ It is not a linter, formatter, or code generator. Its primary question is:
 python -m tripwire review
 python -m tripwire review --staged
 python -m tripwire review main
+python -m tripwire review-pr TAValente/Tripwire 12
 python -m tripwire paranoid
 python -m tripwire architecture
 python -m tripwire eval
@@ -83,6 +84,16 @@ Tripwire loads these project doctrine files before reviewing a diff:
 - `docs/decisions.md`
 
 The git diff is the primary object under review. Doctrine and repository context are supporting evidence.
+
+## GitHub PRs
+
+Review an open GitHub pull request directly:
+
+```powershell
+tripwire review-pr TAValente/Tripwire 12 --concerns "Watch for scope creep and model cost regressions."
+```
+
+Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have Tripwire doctrine docs yet, it falls back to this repository's local doctrine docs.
 
 ## Evaluation
 

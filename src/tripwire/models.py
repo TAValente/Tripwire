@@ -23,6 +23,7 @@ class ReviewInput:
     doctrine: tuple[DoctrineDocument, ...]
     repository_context: str
     source_description: str
+    user_concerns: str = ""
 
 
 @dataclass(frozen=True)

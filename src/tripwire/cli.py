@@ -7,6 +7,7 @@ from pathlib import Path
 from .doctrine import load_doctrine
 from .evaluation import render_eval_results, run_eval
 from .git import GitError, base_diff, repository_context, staged_diff, working_tree_diff
+from .github import GitHubError, fetch_pr_review_input
 from .models import ReviewInput, ReviewMode
 from .reviewer import review as run_review
 
@@ -34,6 +35,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     review_parser.add_argument("base", nargs="?", help="Base ref for branch comparison, for example main.")
     review_parser.add_argument("--staged", action="store_true", help="Review staged changes.")
+
+    pr_parser = subparsers.add_parser(
+        "review-pr",
+        parents=[review_options],
+        help="Review a GitHub pull request directly by repository and PR number.",
+    )
+    pr_parser.add_argument("repo", help="GitHub repository in OWNER/NAME form.")
+    pr_parser.add_argument("number", type=int, help="Pull request number.")
+    pr_parser.add_argument("--concerns", default="", help="Extra concerns or context to include in the review.")
 
     subparsers.add_parser("paranoid", parents=[review_options], help="Run paranoid review mode on the current diff.")
     subparsers.add_parser("architecture", parents=[review_options], help="Run repository-wide architecture analysis.")
@@ -103,6 +113,33 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(render_eval_results(results, show_output=args.show_output))
         return 0 if all(result.passed for result in results) else 1
+
+    if args.command == "review-pr":
+        try:
+            review_input = fetch_pr_review_input(args.repo, args.number, concerns=args.concerns)
+            if not review_input.doctrine:
+                local_doctrine = load_doctrine(root)
+                review_input = ReviewInput(
+                    mode=review_input.mode,
+                    diff=review_input.diff,
+                    doctrine=local_doctrine,
+                    repository_context=review_input.repository_context
+                    + "\n\nDoctrine source: local Tripwire docs fallback.",
+                    source_description=review_input.source_description,
+                    user_concerns=review_input.user_concerns,
+                )
+            print(
+                run_review(
+                    review_input,
+                    provider=args.provider,
+                    model=args.model,
+                    prompt_only=args.prompt_only,
+                )
+            )
+        except GitHubError as exc:
+            print(f"Tripwire could not read the requested GitHub PR: {exc}", file=sys.stderr)
+            return 2
+        return 0
 
     try:
         review_input = make_review_input(args)
