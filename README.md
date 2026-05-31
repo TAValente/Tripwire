@@ -97,6 +97,14 @@ tripwire review-pr TAValente/Tripwire 12 --concerns "Watch for scope creep and m
 
 Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have Tripwire doctrine docs yet, it falls back to this repository's local doctrine docs.
 
+Store a review in Supabase:
+
+```powershell
+tripwire review-pr TAValente/Tripwire 12 --store
+```
+
+See [docs/backend.md](docs/backend.md) for the Supabase schema and setup.
+
 Use the interactive picker:
 
 ```powershell
@@ -118,6 +126,8 @@ Tripwire uses personas selectively:
 - Engineer: architecture drift, hidden complexity, maintainability risk, data model integrity.
 - Product Manager: user value, requirement compliance, scope creep, overengineering, feature prioritization.
 - Economics Watchdog: API costs, infrastructure costs, operational burden, scaling assumptions, latency/resource regressions.
+
+If a project does not have enough documentation for a persona to judge drift responsibly, Tripwire should prefer a Concrete Improver recommending the minimum missing docs over inventing project intent.
 
 ## Evaluation
 

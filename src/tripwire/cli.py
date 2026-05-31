@@ -7,11 +7,13 @@ from pathlib import Path
 from .doctrine import load_doctrine
 from .evaluation import render_eval_results, run_eval
 from .git import GitError, base_diff, repository_context, staged_diff, working_tree_diff
-from .github import GitHubError, fetch_pr_review_input
+from .github import GitHubError, fetch_pr, fetch_pr_review_input
 from .interactive import InteractiveError, choose_pr, choose_repository, prompt_concerns
+from .heuristics import local_findings
 from .models import ReviewInput, ReviewMode
 from .personas import render_personas
 from .reviewer import review as run_review
+from .storage import StorageError, SupabaseStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,6 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     review_options = argparse.ArgumentParser(add_help=False, parents=[ai_options])
     review_options.add_argument("--prompt-only", action="store_true", help="Print the assembled review prompt without calling AI.")
+
+    pr_review_options = argparse.ArgumentParser(add_help=False, parents=[review_options])
+    pr_review_options.add_argument("--store", action="store_true", help="Store GitHub PR review output in Supabase.")
 
     parser = argparse.ArgumentParser(
         prog="tripwire",
@@ -40,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     pr_parser = subparsers.add_parser(
         "review-pr",
-        parents=[review_options],
+        parents=[pr_review_options],
         help="Review a GitHub pull request directly by repository and PR number.",
     )
     pr_parser.add_argument("repo", help="GitHub repository in OWNER/NAME form.")
@@ -49,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "github",
-        parents=[review_options],
+        parents=[pr_review_options],
         help="Interactively choose a GitHub repository and open pull request to review.",
     )
 
@@ -119,6 +124,39 @@ def with_local_doctrine_fallback(review_input: ReviewInput, root: Path) -> Revie
     )
 
 
+def store_pr_review(
+    repo: str,
+    number: int,
+    review_input: ReviewInput,
+    output: str,
+    *,
+    provider: str | None,
+    model: str | None,
+    trigger: str,
+) -> str:
+    pr = fetch_pr(repo, number)
+    store = SupabaseStore()
+    project_id = store.upsert_project(repo, default_branch=pr.base_ref, doctrine=review_input.doctrine)
+    pull_request_id = store.upsert_pull_request(project_id, pr)
+    review_run_id = store.create_review_run(
+        pull_request_id,
+        trigger=trigger,
+        provider=provider,
+        model=model,
+        user_concerns=review_input.user_concerns,
+        doctrine=review_input.doctrine,
+        diff_summary={
+            "changed_files": pr.changed_files,
+            "additions": pr.additions,
+            "deletions": pr.deletions,
+            "source_description": review_input.source_description,
+        },
+        output_text=output,
+    )
+    store.create_findings(review_run_id, local_findings(review_input))
+    return review_run_id
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -146,16 +184,29 @@ def main(argv: list[str] | None = None) -> int:
         try:
             review_input = fetch_pr_review_input(args.repo, args.number, concerns=args.concerns)
             review_input = with_local_doctrine_fallback(review_input, root)
-            print(
-                run_review(
+            output = run_review(
+                review_input,
+                provider=args.provider,
+                model=args.model,
+                prompt_only=args.prompt_only,
+            )
+            print(output)
+            if args.store and not args.prompt_only:
+                review_run_id = store_pr_review(
+                    args.repo,
+                    args.number,
                     review_input,
+                    output,
                     provider=args.provider,
                     model=args.model,
-                    prompt_only=args.prompt_only,
+                    trigger="manual",
                 )
-            )
+                print(f"\nStored Tripwire review run: {review_run_id}")
         except GitHubError as exc:
             print(f"Tripwire could not read the requested GitHub PR: {exc}", file=sys.stderr)
+            return 2
+        except StorageError as exc:
+            print(f"Tripwire could not store the review: {exc}", file=sys.stderr)
             return 2
         return 0
 
@@ -170,17 +221,30 @@ def main(argv: list[str] | None = None) -> int:
                 concerns=concerns,
             )
             review_input = with_local_doctrine_fallback(review_input, root)
+            output = run_review(
+                review_input,
+                provider=args.provider,
+                model=args.model,
+                prompt_only=args.prompt_only,
+            )
             print("")
-            print(
-                run_review(
+            print(output)
+            if args.store and not args.prompt_only:
+                review_run_id = store_pr_review(
+                    selected_repo.name_with_owner,
+                    selected_pr.number,
                     review_input,
+                    output,
                     provider=args.provider,
                     model=args.model,
-                    prompt_only=args.prompt_only,
+                    trigger="manual",
                 )
-            )
+                print(f"\nStored Tripwire review run: {review_run_id}")
         except (GitHubError, InteractiveError) as exc:
             print(f"Tripwire could not run the interactive GitHub review: {exc}", file=sys.stderr)
+            return 2
+        except StorageError as exc:
+            print(f"Tripwire could not store the review: {exc}", file=sys.stderr)
             return 2
         return 0
 

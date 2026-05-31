@@ -19,7 +19,8 @@ class PromptTests(unittest.TestCase):
         self.assertIn("Challenge assumptions.", prompt)
         self.assertIn("Working tree git diff", prompt)
         self.assertIn("+import openai", prompt)
-        self.assertIn("Each finding must include", prompt)
+        self.assertIn("Mistakes to Correct", prompt)
+        self.assertIn("Concrete Improvers", prompt)
 
 
 if __name__ == "__main__":

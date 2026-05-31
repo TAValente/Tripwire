@@ -35,7 +35,7 @@ def review(
                 for part in [
                     ai_text,
                     "---" if ai_text else "",
-                    "Tripwire local guardrail findings",
+                    "Mistakes to Correct",
                     "",
                     rendered_findings,
                 ]
@@ -48,6 +48,8 @@ def review(
         return "\n".join(
             [
                 "Tripwire local review",
+                "",
+                "Mistakes to Correct",
                 "",
                 rendered,
                 ai_warning,

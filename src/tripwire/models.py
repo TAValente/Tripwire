@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import hashlib
+import json
 
 
 class ReviewMode(str, Enum):
@@ -38,25 +40,35 @@ class Finding:
     acceptable_for_current_phase: str
     recommended_action: str
 
+    def stable_key(self) -> str:
+        payload = {
+            "title": self.title,
+            "category": self.category,
+            "persona": self.reviewer_persona,
+            "evidence": self.evidence,
+        }
+        encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()[:16]
+
     def render(self) -> str:
         return "\n".join(
             [
-                f"Title:\n{self.title}",
+                f"Title: {self.title}",
                 "",
-                f"Severity:\n{self.severity}",
+                f"Persona: {self.reviewer_persona}",
                 "",
-                f"Confidence:\n{self.confidence}",
+                f"Severity: {self.severity}",
                 "",
-                f"Category:\n{self.category}",
+                f"Category: {self.category}",
                 "",
-                f"Reviewer Persona:\n{self.reviewer_persona}",
+                f"Confidence: {self.confidence}",
                 "",
-                f"Evidence:\n{self.evidence}",
+                f"Evidence: {self.evidence}",
                 "",
-                f"Why It Matters:\n{self.why_it_matters}",
+                f"Why: {self.why_it_matters}",
                 "",
-                f"Acceptable For Current Phase?\n{self.acceptable_for_current_phase}",
+                f"Acceptable For Current Phase? {self.acceptable_for_current_phase}",
                 "",
-                f"Recommended Action:\n{self.recommended_action}",
+                f"Correction: {self.recommended_action}",
             ]
         )

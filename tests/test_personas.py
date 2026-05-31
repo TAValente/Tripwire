@@ -14,6 +14,7 @@ class PersonaTests(unittest.TestCase):
 
         self.assertIn("Tripwire personas", rendered)
         self.assertIn("Runs when:", rendered)
+        self.assertIn("Minimum docs needed:", rendered)
 
     def test_persona_prompt_section_guides_model_selection(self):
         section = persona_prompt_section()

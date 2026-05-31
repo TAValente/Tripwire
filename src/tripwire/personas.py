@@ -10,6 +10,7 @@ class Persona:
     uses_when: tuple[str, ...]
     avoids: tuple[str, ...]
     example_questions: tuple[str, ...]
+    minimum_docs: tuple[str, ...]
 
 
 PERSONAS = (
@@ -31,6 +32,11 @@ PERSONAS = (
             "Is this adding hidden complexity or a second system for the same job?",
             "Will future changes become harder because of this shape?",
         ),
+        minimum_docs=(
+            "Architecture sketch: major modules, data flow, storage boundaries, and external services.",
+            "Decision log for intentional deviations, new dependencies, and duplicated systems.",
+            "Current phase notes so robustness expectations are calibrated.",
+        ),
     ),
     Persona(
         name="Product Manager",
@@ -50,6 +56,11 @@ PERSONAS = (
             "Is this PR solving the stated problem or smuggling in a new one?",
             "Is the current phase the right time for this surface area?",
         ),
+        minimum_docs=(
+            "Product brief or README stating target user, core promise, and non-goals.",
+            "Current phase and near-term validation goal.",
+            "Known anti-patterns or explicit scope boundaries.",
+        ),
     ),
     Persona(
         name="Economics Watchdog",
@@ -68,6 +79,11 @@ PERSONAS = (
             "Did this increase marginal cost per user interaction?",
             "Is the new cost bounded, cached, or explicitly justified?",
             "Does this add operational burden before the project phase needs it?",
+        ),
+        minimum_docs=(
+            "Economics notes for paid APIs, model calls, hosting, storage, and expected usage scale.",
+            "Latency or resource assumptions for user-facing workflows.",
+            "Cost-control decisions such as cache policy, request limits, or acceptable manual operations.",
         ),
     ),
 )
@@ -90,6 +106,9 @@ def render_personas() -> str:
                 "",
                 "Questions:",
                 *[f"- {item}" for item in persona.example_questions],
+                "",
+                "Minimum docs needed:",
+                *[f"- {item}" for item in persona.minimum_docs],
             ]
         )
     return "\n".join(lines)
@@ -109,6 +128,9 @@ def persona_prompt_section() -> str:
                     "",
                     "Avoid:",
                     *[f"- {item}" for item in persona.avoids],
+                    "",
+                    "Minimum documentation needed for effective review:",
+                    *[f"- {item}" for item in persona.minimum_docs],
                 ]
             )
         )

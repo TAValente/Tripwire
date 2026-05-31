@@ -4,17 +4,20 @@ from .models import ReviewInput, ReviewMode
 from .personas import persona_prompt_section
 
 
-OUTPUT_FORMAT = """Each finding must include:
+OUTPUT_FORMAT = """Output must be concise.
 
-Title
-Severity
-Confidence
-Category
-Relevant Reviewer Persona
-Evidence
-Why It Matters
-Acceptable For Current Phase?
-Recommended Action
+Use exactly these sections:
+
+Mistakes to Correct
+- Include only issues you would urge the author to fix before merge.
+- Each item must include: Title, Persona, Severity, Why, Evidence, Correction.
+
+Concrete Improvers
+- Include helpful but non-blocking improvements that would make the project easier to review or steer.
+- This is where missing minimum documentation belongs when the lack of docs limits a persona's review.
+- Each item must include: Title, Persona, Why, Improvement.
+
+If there are no meaningful findings, output exactly: No high-confidence strategic findings detected.
 """
 
 
@@ -61,6 +64,7 @@ Review discipline:
 - Do not create findings for CLI-only changes that support review, prompt inspection, diff loading, evals, or terminal output during the MVP phase.
 - Do not enumerate possible categories as separate findings.
 - Decide which reviewer personas are materially relevant to the diff. Use only those personas.
+- When target-repository doctrine is missing, do not pretend to know project intent. You may add a Concrete Improver recommending the minimum docs needed for the relevant persona.
 - If there are no meaningful strategic findings, output exactly: No high-confidence strategic findings detected.
 
 {OUTPUT_FORMAT}
