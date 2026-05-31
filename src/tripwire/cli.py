@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from .heuristics import local_findings
 from .models import ReviewInput, ReviewMode
 from .personas import render_personas
 from .reviewer import review as run_review
-from .storage import StorageError, SupabaseStore
+from .storage import LocalStore, StorageError, create_store
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     review_options.add_argument("--prompt-only", action="store_true", help="Print the assembled review prompt without calling AI.")
 
     pr_review_options = argparse.ArgumentParser(add_help=False, parents=[review_options])
-    pr_review_options.add_argument("--store", action="store_true", help="Store GitHub PR review output in Supabase.")
+    pr_review_options.add_argument("--store", action="store_true", help="Store GitHub PR review output locally, or in Supabase when TRIPWIRE_STORE=supabase.")
 
     parser = argparse.ArgumentParser(
         prog="tripwire",
@@ -61,6 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("paranoid", parents=[review_options], help="Run paranoid review mode on the current diff.")
     subparsers.add_parser("architecture", parents=[review_options], help="Run repository-wide architecture analysis.")
     subparsers.add_parser("personas", help="Explain Tripwire's reviewer personas.")
+    memory_parser = subparsers.add_parser("memory", help="Inspect local Tripwire memory.")
+    memory_subparsers = memory_parser.add_subparsers(dest="memory_command", required=True)
+    memory_subparsers.add_parser("stats", help="Show local memory database path, size, and row counts.")
     eval_parser = subparsers.add_parser(
         "eval",
         parents=[ai_options],
@@ -135,7 +139,7 @@ def store_pr_review(
     trigger: str,
 ) -> str:
     pr = fetch_pr(repo, number)
-    store = SupabaseStore()
+    store = create_store()
     project_id = store.upsert_project(repo, default_branch=pr.base_ref, doctrine=review_input.doctrine)
     pull_request_id = store.upsert_pull_request(project_id, pr)
     review_run_id = store.create_review_run(
@@ -155,6 +159,25 @@ def store_pr_review(
     )
     store.create_findings(review_run_id, local_findings(review_input))
     return review_run_id
+
+
+def render_memory_stats(root: Path) -> str:
+    db_path = os.environ.get("TRIPWIRE_DB_PATH")
+    store = LocalStore(db_path or root / ".tripwire" / "tripwire.db")
+    stats = store.stats()
+    store.close()
+    counts = stats["counts"]
+    lines = [
+        "Tripwire memory",
+        "",
+        f"Backend: {stats['backend']}",
+        f"Path: {stats['path']}",
+        f"Size: {stats['size_bytes']} bytes",
+        "",
+        "Rows:",
+    ]
+    lines.extend(f"- {table}: {count}" for table, count in counts.items())  # type: ignore[union-attr]
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -179,6 +202,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "personas":
         print(render_personas())
         return 0
+
+    if args.command == "memory":
+        if args.memory_command == "stats":
+            print(render_memory_stats(root))
+            return 0
+        raise SystemExit(f"Unknown memory command: {args.memory_command}")
 
     if args.command == "review-pr":
         try:

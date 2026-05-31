@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *.log
+.tripwire/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

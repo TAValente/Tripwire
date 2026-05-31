@@ -97,13 +97,19 @@ tripwire review-pr TAValente/Tripwire 12 --concerns "Watch for scope creep and m
 
 Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have Tripwire doctrine docs yet, it falls back to this repository's local doctrine docs.
 
-Store a review in Supabase:
+Store a review:
 
 ```powershell
 tripwire review-pr TAValente/Tripwire 12 --store
 ```
 
-See [docs/backend.md](docs/backend.md) for the Supabase schema and setup.
+By default this stores locally in `.tripwire/tripwire.db`. Set `TRIPWIRE_STORE=supabase` only if you want hosted storage. See [docs/backend.md](docs/backend.md) for local memory and optional Supabase setup.
+
+Inspect local memory:
+
+```powershell
+tripwire memory stats
+```
 
 Use the interactive picker:
 

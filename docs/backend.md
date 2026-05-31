@@ -1,8 +1,16 @@
 # Tripwire Backend
 
-Tripwire can run fully locally, but passive learning needs persistent memory.
+Tripwire can run fully locally. Passive learning needs persistent memory, but that memory does not need a hosted backend during early use.
 
-Use Supabase when you want to store:
+By default Tripwire stores memory in local SQLite:
+
+```text
+.tripwire/tripwire.db
+```
+
+`.tripwire/` is ignored by git.
+
+Use local memory when you want to store:
 
 - review runs
 - findings
@@ -12,13 +20,36 @@ Use Supabase when you want to store:
 - project memory
 - author memory
 
-## Setup
+## Local Setup
+
+No setup is required. Run:
+
+```powershell
+tripwire review-pr TAValente/TrainingTweaks 1 --store
+```
+
+Inspect local storage:
+
+```powershell
+tripwire memory stats
+```
+
+To store memory outside a repository checkout:
+
+```powershell
+$env:TRIPWIRE_DB_PATH = "D:\TripwireMemory\tripwire.db"
+```
+
+## Supabase Setup
+
+Supabase remains optional. Use it only when you want shared memory across machines, a hosted watcher, or multi-user access.
 
 1. Create a Supabase project.
 2. Run `supabase/migrations/001_tripwire_memory.sql` in the SQL editor or through Supabase CLI.
 3. Set environment variables:
 
 ```powershell
+$env:TRIPWIRE_STORE = "supabase"
 $env:SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
 $env:SUPABASE_SERVICE_ROLE_KEY = "..."
 ```
@@ -31,7 +62,7 @@ For local experiments, `SUPABASE_ANON_KEY` can be used if row-level security pol
 tripwire review-pr TAValente/TrainingTweaks 1 --store
 ```
 
-Tripwire currently stores:
+Tripwire currently stores, locally by default:
 
 - project row
 - pull request row
