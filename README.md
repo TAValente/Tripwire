@@ -13,6 +13,8 @@ python -m tripwire review
 python -m tripwire review --staged
 python -m tripwire review main
 python -m tripwire review-pr TAValente/Tripwire 12
+python -m tripwire github
+python -m tripwire personas
 python -m tripwire paranoid
 python -m tripwire architecture
 python -m tripwire eval
@@ -94,6 +96,28 @@ tripwire review-pr TAValente/Tripwire 12 --concerns "Watch for scope creep and m
 ```
 
 Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have Tripwire doctrine docs yet, it falls back to this repository's local doctrine docs.
+
+Use the interactive picker:
+
+```powershell
+tripwire github --provider ollama --model qwen2.5-coder:3b
+```
+
+Tripwire lists repositories, narrows to repositories with open PRs when it can, lets you choose an open PR, asks for optional concerns, and then runs the same review engine.
+
+## Personas
+
+Explain how the reviewer personas work:
+
+```powershell
+tripwire personas
+```
+
+Tripwire uses personas selectively:
+
+- Engineer: architecture drift, hidden complexity, maintainability risk, data model integrity.
+- Product Manager: user value, requirement compliance, scope creep, overengineering, feature prioritization.
+- Economics Watchdog: API costs, infrastructure costs, operational burden, scaling assumptions, latency/resource regressions.
 
 ## Evaluation
 

@@ -5,6 +5,9 @@ Initial CLI targets:
 - `tripwire review`
 - `tripwire review --staged`
 - `tripwire review main`
+- `tripwire review-pr`
+- `tripwire github`
+- `tripwire personas`
 - `tripwire paranoid`
 - `tripwire architecture`
 

@@ -27,6 +27,13 @@ class PullRequest:
     changed_files: int
 
 
+@dataclass(frozen=True)
+class Repository:
+    name_with_owner: str
+    url: str
+    visibility: str
+
+
 def run_gh(args: list[str]) -> str:
     result = subprocess.run(
         ["gh", *args],
@@ -38,6 +45,66 @@ def run_gh(args: list[str]) -> str:
         message = result.stderr.strip() or result.stdout.strip()
         raise GitHubError(message)
     return result.stdout
+
+
+def list_repositories(limit: int = 50) -> tuple[Repository, ...]:
+    data = json.loads(
+        run_gh(
+            [
+                "repo",
+                "list",
+                "--limit",
+                str(limit),
+                "--json",
+                "nameWithOwner,url,visibility",
+            ]
+        )
+    )
+    return tuple(
+        Repository(
+            name_with_owner=item.get("nameWithOwner") or "",
+            url=item.get("url") or "",
+            visibility=item.get("visibility") or "",
+        )
+        for item in data
+        if item.get("nameWithOwner")
+    )
+
+
+def list_open_prs(repo: str) -> tuple[PullRequest, ...]:
+    data = json.loads(
+        run_gh(
+            [
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--json",
+                "number,title,url,author,headRefName,baseRefName,additions,deletions,changedFiles",
+            ]
+        )
+    )
+    prs: list[PullRequest] = []
+    for item in data:
+        author = item.get("author") or {}
+        prs.append(
+            PullRequest(
+                repo=repo,
+                number=int(item.get("number") or 0),
+                title=item.get("title") or "",
+                body="",
+                url=item.get("url") or "",
+                author=author.get("login") or "",
+                head_ref=item.get("headRefName") or "",
+                base_ref=item.get("baseRefName") or "",
+                additions=int(item.get("additions") or 0),
+                deletions=int(item.get("deletions") or 0),
+                changed_files=int(item.get("changedFiles") or 0),
+            )
+        )
+    return tuple(prs)
 
 
 def fetch_pr(repo: str, number: int) -> PullRequest:

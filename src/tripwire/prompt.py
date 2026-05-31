@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .models import ReviewInput, ReviewMode
+from .personas import persona_prompt_section
 
 
 OUTPUT_FORMAT = """Each finding must include:
@@ -59,9 +60,14 @@ Review discipline:
 - Do not create findings merely because a change lacks extra documentation.
 - Do not create findings for CLI-only changes that support review, prompt inspection, diff loading, evals, or terminal output during the MVP phase.
 - Do not enumerate possible categories as separate findings.
+- Decide which reviewer personas are materially relevant to the diff. Use only those personas.
 - If there are no meaningful strategic findings, output exactly: No high-confidence strategic findings detected.
 
 {OUTPUT_FORMAT}
+
+# Reviewer Personas
+
+{persona_prompt_section()}
 
 # Doctrine Documents
 
