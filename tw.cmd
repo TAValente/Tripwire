@@ -17,6 +17,7 @@ if /I "%COMMAND%"=="review-pr" goto run_with_ai
 if /I "%COMMAND%"=="github" goto run_with_ai
 if /I "%COMMAND%"=="paranoid" goto run_with_ai
 if /I "%COMMAND%"=="architecture" goto run_with_ai
+if /I "%COMMAND%"=="scan" goto run_with_ai
 if /I "%COMMAND%"=="doctor" goto run_with_ai
 if /I "%COMMAND%"=="ui" goto run_with_ai
 

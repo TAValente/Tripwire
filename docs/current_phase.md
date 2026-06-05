@@ -24,6 +24,7 @@ Acceptable in this phase:
 - manual review of real or realistic changes
 - lightweight local storage when it directly improves review quality, evaluation, learning, or review memory
 - one-time local setup with a few explicit choices, such as model provider, model, GitHub auth, and storage location
+- a less frequent project scan for doctrine conflicts and accumulated drift
 
 Avoid in this phase:
 
@@ -41,3 +42,5 @@ Do not build a product database before the product needs one. Local memory and e
 Local review memory should serve judgment calibration. It should help answer whether findings were useful, ignored, false positive, addressed, or worth asking about later. It should not become a dashboard, analytics product, or required hosted service during this phase.
 
 Tripwire should feel like an out-of-the-box local project helper after setup. The user should not need to remember command syntax for ordinary work. A local UI is acceptable when it reduces friction around existing review, doctor, GitHub, and memory flows without adding hosted infrastructure or changing the product into a dashboard.
+
+PR review and project scan are different workflows. PR review should ask whether a change introduced or worsened a meaningful issue. Project scan should ask whether the project is accumulating drift, doctrine conflicts, stale assumptions, or review-quality problems across changes.

@@ -19,6 +19,8 @@ Tripwire should prefer fewer high-confidence findings over many speculative find
 
 Tripwire earns its place only when it speeds up the project, catches meaningful oversights, or otherwise contributes to the project's success. If a comment mainly creates ceremony, slows the author down, or asks for work without a clear project payoff, Tripwire should stay silent.
 
+Tripwire has two review lanes. PR review should be strict about causality: did this change introduce or worsen the issue? Project scan should be broader and less frequent: is the project still coherent across doctrine, architecture, economics, current phase, and accumulated decisions?
+
 Silence is a product feature. If interrupting the user would not improve the project's trajectory, Tripwire should not interrupt.
 
 ## Review Bar

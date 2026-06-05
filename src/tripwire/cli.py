@@ -69,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("paranoid", parents=[review_options], help="Run paranoid review mode on the current diff.")
     subparsers.add_parser("architecture", parents=[review_options], help="Run repository-wide architecture analysis.")
+    subparsers.add_parser("scan", parents=[review_options], help="Run a project scan for longer-running drift and doctrine conflicts.")
     subparsers.add_parser("doctrine", help="Check local doctrine completeness and suggest missing docs.")
     subparsers.add_parser("doctor", parents=[ai_options], help="Check whether Tripwire review dependencies are ready.")
     ui_parser = subparsers.add_parser("ui", parents=[ai_options], help="Run the local Tripwire control panel.")
@@ -116,6 +117,10 @@ def make_review_input(args: argparse.Namespace) -> ReviewInput:
         diff = ""
         source = "Repository-wide architecture analysis"
         mode = ReviewMode.ARCHITECTURE
+    elif args.command == "scan":
+        diff = ""
+        source = "Project scan"
+        mode = ReviewMode.PROJECT_SCAN
     else:
         raise SystemExit(f"Unknown command: {args.command}")
 

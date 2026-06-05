@@ -56,7 +56,7 @@ def local_findings(review_input: ReviewInput) -> list[Finding]:
     findings: list[Finding] = []
     doctrine = doctrine_text(review_input)
 
-    if not diff.strip() and review_input.mode != ReviewMode.ARCHITECTURE:
+    if not diff.strip() and review_input.mode not in {ReviewMode.ARCHITECTURE, ReviewMode.PROJECT_SCAN}:
         return findings
 
     added_lines = "\n".join(

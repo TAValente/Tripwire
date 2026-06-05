@@ -10,7 +10,9 @@ Version 1 should:
 4. Generate structured findings.
 5. Output findings through a small local surface.
 
-The git diff is the primary object under review. Repository context, doctrine documents, test output, build status, and evaluation results may provide supporting context.
+For PR and diff review, the git diff is the primary object under review. Repository context, doctrine documents, test output, build status, and evaluation results may provide supporting context.
+
+For project scan, the project itself is the object under review. Project scan is allowed to inspect doctrine consistency, stale phase assumptions, accumulated drift, architecture/economics contradictions, and review-quality feedback that is not caused by one PR.
 
 Tripwire is not a coding assistant, code generator, linter, formatter, full test runner, CI gate, or autonomous refactoring tool.
 
