@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -194,13 +195,21 @@ def output_has_mistake(output: str) -> bool:
     text = output.strip()
     if not text or text.startswith("No high-confidence strategic findings detected."):
         return False
-    if "Mistakes to Correct" not in text:
+    if "Mistakes to Correct" in text:
+        mistakes_section = text.split("Mistakes to Correct", 1)[1].split("Concrete Improvers", 1)[0]
+        return "Title:" in mistakes_section
+    if "Findings" not in text:
         return False
-    mistakes_section = text.split("Mistakes to Correct", 1)[1].split("Concrete Improvers", 1)[0]
-    return "Title:" in mistakes_section
+    findings_section = text.split("Findings", 1)[1].split("Suppressed / Calibration", 1)[0]
+    if re.search(r"(?im)^\s*none\.?\s*$", findings_section.strip()):
+        return False
+    return "Type: Mistake" in findings_section and "Title:" in findings_section
 
 
 def output_has_suppressed_finding(output: str) -> bool:
+    if "Suppressed / Calibration" in output:
+        section = output.split("Suppressed / Calibration", 1)[1].split("Confidence Limits", 1)[0]
+        return "Title:" in section
     return "Suppressed Finding" in output and "Title:" in output.split("Suppressed Finding", 1)[1]
 
 

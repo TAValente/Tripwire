@@ -1,7 +1,7 @@
 import unittest
 
 from tripwire.models import ReviewInput, ReviewMode
-from tripwire.reviewer import clean_ai_output, review
+from tripwire.reviewer import build_alignment_retry_prompt, alignment_unavailable_output, clean_ai_output, review
 
 
 class ReviewerTests(unittest.TestCase):
@@ -57,6 +57,58 @@ class ReviewerTests(unittest.TestCase):
             output,
             "No high-confidence strategic findings detected.\n\nSuppressed Finding\nTitle: Possible issue\nSeverity If True: 3",
         )
+
+    def test_clean_ai_output_accepts_alignment_assessment(self):
+        output = clean_ai_output(
+            "Preamble\n\n"
+            "**Project Understanding**\n\n"
+            "Current phase: high\n"
+            "Economics: medium\n"
+            "Architecture: low\n"
+            "Roadmap/decisions: medium\n"
+            "Key confidence limits: Runtime behavior not inspected.\n\n"
+            "**Alignment Assessment**\n\n"
+            "Priority: Judgment quality\n"
+            "Direction: better\n"
+            "Confidence: Medium\n"
+            "Evidence: The diff improves review evidence.\n\n"
+            "## Findings\n\n"
+            "None.\n\n"
+            "## Emergent Concerns\n\n"
+            "None.\n\n"
+            "## Suppressed / Calibration\n\n"
+            "None.\n\n"
+            "## Confidence Limits\n\n"
+            "I did not inspect runtime behavior."
+        )
+
+        self.assertTrue(output.startswith("Project Understanding"))
+        self.assertIn("Alignment Assessment", output)
+        self.assertIn("Confidence Limits", output)
+
+    def test_alignment_retry_prompt_rejects_legacy_green_check(self):
+        prompt = build_alignment_retry_prompt("Original prompt")
+
+        self.assertIn("legacy green-check sentence", prompt)
+        self.assertIn("Project Understanding", prompt)
+        self.assertIn("Alignment Assessment", prompt)
+        self.assertIn("Emergent Concerns", prompt)
+        self.assertIn("Findings may be `None.`", prompt)
+
+    def test_alignment_unavailable_output_is_not_green_check(self):
+        review_input = ReviewInput(
+            mode=ReviewMode.STANDARD,
+            diff="+change",
+            doctrine=(),
+            repository_context="GitHub repository: example/repo",
+            source_description="GitHub PR example/repo#1",
+        )
+
+        output = alignment_unavailable_output(review_input)
+
+        self.assertTrue(output.startswith("Project Understanding"))
+        self.assertIn("Review reliability", output)
+        self.assertIn("not strong enough to support a confident no-findings conclusion", output)
 
 
 if __name__ == "__main__":

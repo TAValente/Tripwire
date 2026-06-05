@@ -277,11 +277,17 @@ def build_pr_review_input(
     doctrine: tuple[DoctrineDocument, ...],
     *,
     concerns: str = "",
+    repository: Repository | None = None,
 ) -> ReviewInput:
     body = pr.body.strip() or "(No PR body.)"
     repository_context = "\n".join(
         [
             f"GitHub repository: {pr.repo}",
+            f"Repository URL: {repository.url if repository else pr.url.rsplit('/pull/', 1)[0]}",
+            f"Repository visibility: {repository.visibility if repository else 'unknown'}",
+            f"Repository default branch: {repository.default_branch if repository else pr.base_ref}",
+            f"Repository primary language: {repository.primary_language if repository else 'unknown'}",
+            f"Repository description: {(repository.description if repository else '') or '(none)'}",
             f"Pull request: #{pr.number}",
             f"URL: {pr.url}",
             f"Author: {pr.author or 'unknown'}",
@@ -312,7 +318,11 @@ def fetch_pr_review_input(repo: str, number: int, *, concerns: str = "") -> Revi
     pr = fetch_pr(repo, number)
     diff = fetch_pr_diff(repo, number)
     doctrine = fetch_remote_doctrine(repo, pr.base_ref)
-    return build_pr_review_input(pr, diff, doctrine, concerns=concerns)
+    try:
+        repository = fetch_repository(repo)
+    except GitHubError:
+        repository = None
+    return build_pr_review_input(pr, diff, doctrine, concerns=concerns, repository=repository)
 
 
 def fetch_project_scan_input(repo: str) -> ReviewInput:

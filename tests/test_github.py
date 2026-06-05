@@ -35,9 +35,19 @@ class GitHubReviewInputTests(unittest.TestCase):
             "+from fastapi import FastAPI",
             (DoctrineDocument("docs/principles.md", "Challenge assumptions."),),
             concerns="Watch model costs.",
+            repository=Repository(
+                name_with_owner="TAValente/Tripwire",
+                url="https://github.com/TAValente/Tripwire",
+                visibility="PRIVATE",
+                description="Project consistency checker",
+                default_branch="main",
+                primary_language="Python",
+            ),
         )
 
         self.assertIn("Pull request: #12", review_input.repository_context)
+        self.assertIn("Repository primary language: Python", review_input.repository_context)
+        self.assertIn("Repository description: Project consistency checker", review_input.repository_context)
         self.assertIn("Add review-pr command", review_input.source_description)
         self.assertEqual(review_input.user_concerns, "Watch model costs.")
         self.assertEqual(review_input.doctrine[0].path, "docs/principles.md")

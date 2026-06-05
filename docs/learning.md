@@ -12,6 +12,10 @@ Tripwire should accelerate both shipping and understanding. A useful review prev
 
 A green check should not become blind trust. When Tripwire finds nothing, that means it found no high-confidence project-alignment issue from the available evidence. It does not mean the change is correct, complete, secure, performant, or production-ready.
 
+When there are no findings, Tripwire should still make the alignment judgment visible. The useful answer is not only "nothing is wrong"; it is which priorities got better, worse, stayed flat, or remain unknown from the available evidence.
+
+Tripwire should distinguish unchanged from unknown. Unchanged means it inspected enough to believe there was no meaningful movement. Unknown means it lacks enough evidence to make that claim.
+
 When Tripwire is uncertain, it may ask calibration questions that improve future judgment. These questions should be clearly marked as calibration, not treated as blocking findings.
 
 Tripwire should make the user better at evaluating AI output, not less responsible for it.

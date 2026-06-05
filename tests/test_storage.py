@@ -98,7 +98,7 @@ class StorageModelTests(unittest.TestCase):
             "No high-confidence strategic findings detected.\n\n"
             "Suppressed Finding\n\nTitle: Possible drift"
         )
-        mistake = "Mistakes to Correct\n\nTitle: Real issue\n\nConcrete Improvers"
+        mistake = "Findings\n\nType: Mistake\nTitle: Real issue\n\nSuppressed / Calibration"
 
         self.assertFalse(output_has_mistake(suppressed_only))
         self.assertTrue(output_has_suppressed_finding(suppressed_only))
@@ -141,7 +141,7 @@ class StorageModelTests(unittest.TestCase):
                 user_concerns="",
                 doctrine=(),
                 diff_summary={"head_sha": "new"},
-                output_text="Mistakes to Correct\n\nTitle: Real issue\n\nConcrete Improvers",
+                output_text="Findings\n\nType: Mistake\nTitle: Real issue\n\nSuppressed / Calibration",
             )
 
             infer_previous_review_signals(
@@ -149,7 +149,7 @@ class StorageModelTests(unittest.TestCase):
                 pull_request_id,
                 current_review_run_id=current_id,
                 current_head_sha="new",
-                current_output="Mistakes to Correct\n\nTitle: Real issue\n\nConcrete Improvers",
+                current_output="Findings\n\nType: Mistake\nTitle: Real issue\n\nSuppressed / Calibration",
             )
             signal = store.connection.execute(
                 "select inferred_signal from tripwire_review_runs where id = ?",

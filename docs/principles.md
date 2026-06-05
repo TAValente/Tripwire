@@ -21,6 +21,12 @@ Tripwire earns its place only when it speeds up the project, catches meaningful 
 
 Tripwire has two review lanes. PR review should be strict about causality: did this change introduce or worsen the issue? Project scan should be broader and less frequent: is the project still coherent across doctrine, architecture, economics, current phase, and accumulated decisions?
 
+Tripwire's primary review output is alignment, not coverage. Coverage exists to support confidence. Each review should identify the project's current priorities, judge whether the change or project state makes those priorities better, worse, unchanged, or unknown, and cite the evidence for that judgment.
+
+Alignment assessment is additive, not a replacement for findings. Tripwire should still generate normal high-confidence findings when the bar is met.
+
+Doctrine guides review, but it must not become a blindfold. Tripwire should still flag important emergent concerns that project doctrine did not explicitly anticipate.
+
 Silence is a product feature. If interrupting the user would not improve the project's trajectory, Tripwire should not interrupt.
 
 ## Review Bar
