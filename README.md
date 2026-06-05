@@ -8,13 +8,27 @@ It is not a linter, formatter, or code generator. Its primary question is:
 
 ## Quick start
 
+From PowerShell in this repo, use the local wrapper:
+
+```powershell
+.\tw.cmd doctor
+.\tw.cmd ui
+.\tw.cmd review-pr TAValente/TrainingTweaks 5
+.\tw.cmd eval
+```
+
+The wrapper sets `PYTHONPATH=src` and defaults to Ollama with `qwen3:8b`. Use `tw.cmd` on Windows because PowerShell may block local `.ps1` scripts by policy.
+
 ```powershell
 python -m tripwire review
 python -m tripwire review --staged
 python -m tripwire review main
 python -m tripwire review-pr TAValente/Tripwire 12
 python -m tripwire github
+python -m tripwire ui
 python -m tripwire personas
+python -m tripwire doctrine
+python -m tripwire doctor --provider ollama --model qwen3:8b
 python -m tripwire paranoid
 python -m tripwire architecture
 python -m tripwire eval
@@ -84,6 +98,7 @@ Tripwire loads these project doctrine files before reviewing a diff:
 - `docs/anti_patterns.md`
 - `docs/architecture.md`
 - `docs/decisions.md`
+- `docs/learning.md`
 
 The git diff is the primary object under review. Doctrine and repository context are supporting evidence.
 
@@ -96,6 +111,14 @@ tripwire review-pr TAValente/Tripwire 12 --concerns "Watch for scope creep and m
 ```
 
 Tripwire uses the authenticated GitHub CLI session to fetch PR metadata, PR diff, and doctrine docs from the PR base branch. If the target repository does not have doctrine docs, Tripwire does not fall back to its own doctrine; it emits a Concrete Improver explaining the minimum docs needed for useful review.
+
+Install and authenticate GitHub CLI before using GitHub PR commands:
+
+```powershell
+gh auth login
+```
+
+If `gh` is missing, Tripwire exits with an actionable setup message instead of a Python traceback.
 
 Store a review:
 
@@ -118,6 +141,22 @@ tripwire github --provider ollama --model qwen2.5-coder:3b
 ```
 
 Tripwire lists repositories, narrows to repositories with open PRs when it can, lets you choose an open PR, asks for optional concerns, and then runs the same review engine.
+
+Check local readiness:
+
+```powershell
+tripwire doctor --provider ollama --model qwen3:8b
+```
+
+Doctor checks package import, doctrine completeness, GitHub CLI/auth, and the configured AI provider/model.
+
+Run the local control panel:
+
+```powershell
+.\tw.cmd ui
+```
+
+The control panel runs on `127.0.0.1`, wraps the local review workflow, and does not require hosted deployment.
 
 ## Personas
 

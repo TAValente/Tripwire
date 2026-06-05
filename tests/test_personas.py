@@ -22,6 +22,14 @@ class PersonaTests(unittest.TestCase):
         self.assertIn("Use this persona when:", section)
         self.assertIn("Avoid:", section)
 
+    def test_economics_watchdog_distinguishes_material_cost_from_instrumentation(self):
+        economics = next(persona for persona in PERSONAS if persona.name == "Economics Watchdog")
+
+        joined = " ".join((*economics.uses_when, *economics.avoids, *economics.example_questions))
+        self.assertIn("marginal cost", joined)
+        self.assertIn("bounded logging", joined)
+        self.assertIn("product evaluation", joined)
+
 
 if __name__ == "__main__":
     unittest.main()

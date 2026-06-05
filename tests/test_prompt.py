@@ -23,6 +23,16 @@ class PromptTests(unittest.TestCase):
         self.assertIn("Concrete Improvers", prompt)
         self.assertIn("Every finding must pass the leverage test", prompt)
         self.assertIn("author friction without a clear project payoff", prompt)
+        self.assertIn("Final answer only", prompt)
+        self.assertIn("Do not output hidden reasoning", prompt)
+        self.assertIn("If the change is beneficial or harmless, do not summarize it", prompt)
+        self.assertIn("Do not flag unused functions", prompt)
+        self.assertIn("caused or materially worsened by this diff", prompt)
+        self.assertIn("Evidence must cite what changed", prompt)
+        self.assertIn("Do not flag AI economics merely because", prompt)
+        self.assertIn("caused or materially worsened by this diff", prompt)
+        self.assertIn("Evidence must cite what changed", prompt)
+        self.assertIn("Do not flag AI economics merely because", prompt)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,8 @@ import os
 import sys
 from pathlib import Path
 
-from .doctrine import load_doctrine
+from .doctrine import load_doctrine, render_doctrine_completeness
+from .doctor import render_doctor
 from .evaluation import render_eval_results, run_eval
 from .git import GitError, base_diff, repository_context, staged_diff, working_tree_diff
 from .github import GitHubError, fetch_pr, fetch_pr_review_input
@@ -15,6 +16,13 @@ from .models import ReviewInput, ReviewMode
 from .personas import render_personas
 from .reviewer import review as run_review
 from .storage import LocalStore, StorageError, create_store
+
+
+def configure_console_output() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure:
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -61,6 +69,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("paranoid", parents=[review_options], help="Run paranoid review mode on the current diff.")
     subparsers.add_parser("architecture", parents=[review_options], help="Run repository-wide architecture analysis.")
+    subparsers.add_parser("doctrine", help="Check local doctrine completeness and suggest missing docs.")
+    subparsers.add_parser("doctor", parents=[ai_options], help="Check whether Tripwire review dependencies are ready.")
+    ui_parser = subparsers.add_parser("ui", parents=[ai_options], help="Run the local Tripwire control panel.")
+    ui_parser.add_argument("--host", default="127.0.0.1", help="Host for the local UI. Defaults to 127.0.0.1.")
+    ui_parser.add_argument("--port", type=int, default=8787, help="Port for the local UI. Defaults to 8787.")
+    ui_parser.add_argument("--default-repo", default="", help="Optional OWNER/REPO value to prefill.")
+    ui_parser.add_argument("--open", action="store_true", help="Open the local UI in the default browser.")
     subparsers.add_parser("personas", help="Explain Tripwire's reviewer personas.")
     memory_parser = subparsers.add_parser("memory", help="Inspect local Tripwire memory.")
     memory_subparsers = memory_parser.add_subparsers(dest="memory_command", required=True)
@@ -128,6 +143,40 @@ def mark_missing_target_doctrine(review_input: ReviewInput) -> ReviewInput:
     )
 
 
+def attach_review_feedback(root: Path, repo: str, review_input: ReviewInput) -> ReviewInput:
+    db_path = os.environ.get("TRIPWIRE_DB_PATH")
+    store = LocalStore(db_path or root / ".tripwire" / "tripwire.db")
+    try:
+        outcomes = store.recent_review_outcomes(repo, limit=5)
+    finally:
+        store.close()
+    if not outcomes:
+        return review_input
+
+    lines = [
+        "",
+        "",
+        "Prior Tripwire feedback for this repository:",
+        "Use this only to calibrate judgment. Do not repeat findings that were explicitly marked false_positive unless the new diff materially changes the evidence.",
+    ]
+    for outcome in outcomes:
+        note = f" Note: {outcome['outcome_note']}" if outcome["outcome_note"] else ""
+        inferred = f" Inferred signal: {outcome['inferred_signal']}." if outcome["inferred_signal"] else ""
+        lines.append(
+            f"- PR #{outcome['pr_number']} {outcome['pr_title']}: {outcome['outcome_state']}.{inferred}{note}"
+        )
+
+    return ReviewInput(
+        mode=review_input.mode,
+        diff=review_input.diff,
+        doctrine=review_input.doctrine,
+        repository_context=review_input.repository_context + "\n".join(lines),
+        source_description=review_input.source_description,
+        user_concerns=review_input.user_concerns,
+        missing_target_doctrine=review_input.missing_target_doctrine,
+    )
+
+
 def store_pr_review(
     repo: str,
     number: int,
@@ -156,6 +205,7 @@ def store_pr_review(
             "source_description": review_input.source_description,
         },
         output_text=output,
+        inferred_signal="review_stored_no_feedback",
     )
     store.create_findings(review_run_id, local_findings(review_input))
     return review_run_id
@@ -181,6 +231,7 @@ def render_memory_stats(root: Path) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_console_output()
     parser = build_parser()
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
@@ -203,6 +254,20 @@ def main(argv: list[str] | None = None) -> int:
         print(render_personas())
         return 0
 
+    if args.command == "doctrine":
+        print(render_doctrine_completeness(root))
+        return 0
+
+    if args.command == "doctor":
+        output, ready = render_doctor(root, provider=args.provider, model=args.model)
+        print(output)
+        return 0 if ready else 1
+
+    if args.command == "ui":
+        from .ui import serve_ui
+
+        return serve_ui(args)
+
     if args.command == "memory":
         if args.memory_command == "stats":
             print(render_memory_stats(root))
@@ -213,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             review_input = fetch_pr_review_input(args.repo, args.number, concerns=args.concerns)
             review_input = mark_missing_target_doctrine(review_input)
+            review_input = attach_review_feedback(root, args.repo, review_input)
             output = run_review(
                 review_input,
                 provider=args.provider,
@@ -250,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
                 concerns=concerns,
             )
             review_input = mark_missing_target_doctrine(review_input)
+            review_input = attach_review_feedback(root, selected_repo.name_with_owner, review_input)
             output = run_review(
                 review_input,
                 provider=args.provider,

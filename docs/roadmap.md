@@ -83,6 +83,39 @@ Scope:
 
 GitHub review should remain a manual command during MVP validation. Bots and CI gates should wait until review quality is proven.
 
+## 4.1. Local Control Panel
+
+Make Tripwire usable as an out-of-the-box local project helper after one setup pass.
+
+Purpose:
+
+The user should not need to remember command syntax for routine review work.
+
+Scope:
+
+- run doctor checks
+- choose a local model/provider
+- list open GitHub PRs for a repository
+- review a selected PR
+- optionally store the review locally
+- inspect local memory status
+
+The control panel should wrap existing local commands. It should not introduce hosted deployment, product dashboards, required accounts beyond GitHub/Ollama setup, or new workflow machinery.
+
+Setup should ask for only the choices that matter:
+
+- model provider
+- model name or model type
+- GitHub authentication status
+- local storage location only if the default is not acceptable
+
+Exit criteria:
+
+1. A user can review a GitHub PR without remembering the PowerShell command.
+2. The UI makes local readiness visible before review.
+3. The UI does not change Tripwire's local-first architecture.
+4. The CLI remains available and authoritative.
+
 ## 4.5. Doctrine Lifecycle Management
 
 Doctrine Lifecycle Management is a future phase for keeping project doctrine stable enough to prevent drift while still allowing evidence-based evolution.

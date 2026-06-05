@@ -59,11 +59,21 @@ class StorageModelTests(unittest.TestCase):
                 output_text="No high-confidence strategic findings detected.",
             )
             store.create_findings(review_run_id, [])
+            store.set_review_run_outcome(review_run_id, "false_positive", "AI-adjacent files, no new model call.")
             stats = store.stats()
+            outcome = store.connection.execute(
+                "select outcome_state, outcome_note from tripwire_review_runs where id = ?",
+                (review_run_id,),
+            ).fetchone()
+            recent_outcomes = store.recent_review_outcomes("TAValente/Tripwire")
             store.close()
 
         self.assertEqual(stats["counts"]["tripwire_projects"], 1)
         self.assertEqual(stats["counts"]["tripwire_review_runs"], 1)
+        self.assertEqual(outcome[0], "false_positive")
+        self.assertIn("AI-adjacent", outcome[1])
+        self.assertEqual(recent_outcomes[0]["outcome_state"], "false_positive")
+        self.assertEqual(recent_outcomes[0]["pr_number"], "1")
 
 
 if __name__ == "__main__":
