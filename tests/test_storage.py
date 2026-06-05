@@ -6,6 +6,7 @@ from tripwire.models import Finding
 from tripwire.github import PullRequest
 from tripwire.models import DoctrineDocument
 from tripwire.storage import LocalStore, review_output_summary
+from tripwire.cli import infer_previous_review_signals, output_has_mistake, output_has_suppressed_finding
 
 
 class StorageModelTests(unittest.TestCase):
@@ -91,6 +92,72 @@ class StorageModelTests(unittest.TestCase):
             review_output_summary("No high-confidence strategic findings detected.\n\nSuppressed Finding"),
             "No high-confidence strategic findings detected.",
         )
+
+    def test_review_output_helpers_separate_mistakes_from_suppressed_findings(self):
+        suppressed_only = (
+            "No high-confidence strategic findings detected.\n\n"
+            "Suppressed Finding\n\nTitle: Possible drift"
+        )
+        mistake = "Mistakes to Correct\n\nTitle: Real issue\n\nConcrete Improvers"
+
+        self.assertFalse(output_has_mistake(suppressed_only))
+        self.assertTrue(output_has_suppressed_finding(suppressed_only))
+        self.assertTrue(output_has_mistake(mistake))
+
+    def test_infers_suppressed_finding_signal_after_pr_update(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalStore(Path(directory) / "tripwire.db")
+            pr = PullRequest(
+                repo="TAValente/Tripwire",
+                number=1,
+                title="Test PR",
+                body="",
+                url="https://github.com/TAValente/Tripwire/pull/1",
+                author="TAValente",
+                head_ref="feature",
+                base_ref="main",
+                additions=1,
+                deletions=0,
+                changed_files=1,
+                head_sha="new",
+            )
+            project_id = store.upsert_project("TAValente/Tripwire", default_branch="main", doctrine=())
+            pull_request_id = store.upsert_pull_request(project_id, pr)
+            previous_id = store.create_review_run(
+                pull_request_id,
+                trigger="manual",
+                provider=None,
+                model=None,
+                user_concerns="",
+                doctrine=(),
+                diff_summary={"head_sha": "old"},
+                output_text="No high-confidence strategic findings detected.\n\nSuppressed Finding\n\nTitle: Possible issue",
+            )
+            current_id = store.create_review_run(
+                pull_request_id,
+                trigger="manual",
+                provider=None,
+                model=None,
+                user_concerns="",
+                doctrine=(),
+                diff_summary={"head_sha": "new"},
+                output_text="Mistakes to Correct\n\nTitle: Real issue\n\nConcrete Improvers",
+            )
+
+            infer_previous_review_signals(
+                store,
+                pull_request_id,
+                current_review_run_id=current_id,
+                current_head_sha="new",
+                current_output="Mistakes to Correct\n\nTitle: Real issue\n\nConcrete Improvers",
+            )
+            signal = store.connection.execute(
+                "select inferred_signal from tripwire_review_runs where id = ?",
+                (previous_id,),
+            ).fetchone()[0]
+            store.close()
+
+        self.assertEqual(signal, "pr_updated_after_suppressed_finding_now_finding")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from .doctrine import load_doctrine, render_doctrine_completeness
 from .doctor import render_doctor
 from .evaluation import render_eval_results, run_eval
 from .git import GitError, base_diff, repository_context, staged_diff, working_tree_diff
-from .github import GitHubError, fetch_pr, fetch_pr_review_input
+from .github import GitHubError, fetch_pr, fetch_pr_review_input, fetch_project_scan_input
 from .interactive import InteractiveError, choose_pr, choose_repository, prompt_concerns
 from .heuristics import local_findings
 from .models import ReviewInput, ReviewMode
@@ -69,7 +69,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("paranoid", parents=[review_options], help="Run paranoid review mode on the current diff.")
     subparsers.add_parser("architecture", parents=[review_options], help="Run repository-wide architecture analysis.")
-    subparsers.add_parser("scan", parents=[review_options], help="Run a project scan for longer-running drift and doctrine conflicts.")
+    scan_parser = subparsers.add_parser(
+        "scan",
+        parents=[review_options],
+        help="Run a project scan for longer-running drift and doctrine conflicts.",
+    )
+    scan_parser.add_argument("repo", nargs="?", help="Optional GitHub repository in OWNER/NAME form.")
     subparsers.add_parser("doctrine", help="Check local doctrine completeness and suggest missing docs.")
     subparsers.add_parser("doctor", parents=[ai_options], help="Check whether Tripwire review dependencies are ready.")
     ui_parser = subparsers.add_parser("ui", parents=[ai_options], help="Run the local Tripwire control panel.")
@@ -118,6 +123,8 @@ def make_review_input(args: argparse.Namespace) -> ReviewInput:
         source = "Repository-wide architecture analysis"
         mode = ReviewMode.ARCHITECTURE
     elif args.command == "scan":
+        if args.repo:
+            return fetch_project_scan_input(args.repo)
         diff = ""
         source = "Project scan"
         mode = ReviewMode.PROJECT_SCAN
@@ -166,9 +173,10 @@ def attach_review_feedback(root: Path, repo: str, review_input: ReviewInput) -> 
     ]
     for outcome in outcomes:
         note = f" Note: {outcome['outcome_note']}" if outcome["outcome_note"] else ""
+        state = outcome["outcome_state"] or "inferred_observation"
         inferred = f" Inferred signal: {outcome['inferred_signal']}." if outcome["inferred_signal"] else ""
         lines.append(
-            f"- PR #{outcome['pr_number']} {outcome['pr_title']}: {outcome['outcome_state']}.{inferred}{note}"
+            f"- PR #{outcome['pr_number']} {outcome['pr_title']}: {state}.{inferred}{note}"
         )
 
     return ReviewInput(
@@ -180,6 +188,55 @@ def attach_review_feedback(root: Path, repo: str, review_input: ReviewInput) -> 
         user_concerns=review_input.user_concerns,
         missing_target_doctrine=review_input.missing_target_doctrine,
     )
+
+
+def output_has_mistake(output: str) -> bool:
+    text = output.strip()
+    if not text or text.startswith("No high-confidence strategic findings detected."):
+        return False
+    if "Mistakes to Correct" not in text:
+        return False
+    mistakes_section = text.split("Mistakes to Correct", 1)[1].split("Concrete Improvers", 1)[0]
+    return "Title:" in mistakes_section
+
+
+def output_has_suppressed_finding(output: str) -> bool:
+    return "Suppressed Finding" in output and "Title:" in output.split("Suppressed Finding", 1)[1]
+
+
+def infer_previous_review_signals(
+    store: LocalStore,
+    pull_request_id: str,
+    *,
+    current_review_run_id: str,
+    current_head_sha: str,
+    current_output: str,
+) -> None:
+    if not current_head_sha:
+        return
+    current_has_mistake = output_has_mistake(current_output)
+    for previous in store.previous_pr_review_runs(
+        pull_request_id,
+        exclude_run_id=current_review_run_id,
+    ):
+        diff_summary = previous.get("diff_summary")
+        previous_head_sha = ""
+        if isinstance(diff_summary, dict):
+            previous_head_sha = str(diff_summary.get("head_sha") or "")
+        if not previous_head_sha or previous_head_sha == current_head_sha:
+            continue
+        previous_output = str(previous.get("output_text") or "")
+        if output_has_suppressed_finding(previous_output):
+            signal = (
+                "pr_updated_after_suppressed_finding_now_finding"
+                if current_has_mistake
+                else "pr_updated_after_suppressed_finding_no_current_finding"
+            )
+        elif output_has_mistake(previous_output) and not current_has_mistake:
+            signal = "pr_updated_after_finding_no_current_finding"
+        else:
+            continue
+        store.set_review_run_inferred_signal(str(previous["id"]), signal)
 
 
 def store_pr_review(
@@ -207,11 +264,20 @@ def store_pr_review(
             "changed_files": pr.changed_files,
             "additions": pr.additions,
             "deletions": pr.deletions,
+            "head_sha": pr.head_sha,
             "source_description": review_input.source_description,
         },
         output_text=output,
         inferred_signal="review_stored_no_feedback",
     )
+    if isinstance(store, LocalStore):
+        infer_previous_review_signals(
+            store,
+            pull_request_id,
+            current_review_run_id=review_run_id,
+            current_head_sha=pr.head_sha,
+            current_output=output,
+        )
     store.create_findings(review_run_id, local_findings(review_input))
     return review_run_id
 
@@ -359,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
                 prompt_only=args.prompt_only,
             )
         )
-    except GitError as exc:
-        print(f"Tripwire could not read the requested git diff: {exc}", file=sys.stderr)
+    except (GitError, GitHubError) as exc:
+        print(f"Tripwire could not read the requested review target: {exc}", file=sys.stderr)
         return 2
     return 0

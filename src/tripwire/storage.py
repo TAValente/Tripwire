@@ -134,8 +134,22 @@ class LocalStore:
         self.connection = sqlite3.connect(self.db_path)
         self.connection.execute("pragma foreign_keys = on")
         self.connection.executescript(SQLITE_SCHEMA)
+        self._ensure_pull_request_columns()
         self._ensure_review_run_columns()
         self.connection.commit()
+
+    def _ensure_pull_request_columns(self) -> None:
+        existing_columns = {
+            row[1]
+            for row in self.connection.execute("pragma table_info(tripwire_pull_requests)").fetchall()
+        }
+        columns = {
+            "last_seen_head_sha": "text",
+            "merged_at": "text",
+        }
+        for column, definition in columns.items():
+            if column not in existing_columns:
+                self.connection.execute(f"alter table tripwire_pull_requests add column {column} {definition}")
 
     def _ensure_review_run_columns(self) -> None:
         existing_columns = {
@@ -181,7 +195,7 @@ class LocalStore:
         self.connection.commit()
         return project_id
 
-    def upsert_pull_request(self, project_id: str, pr: PullRequest, *, state: str = "open") -> str:
+    def upsert_pull_request(self, project_id: str, pr: PullRequest, *, state: str | None = None) -> str:
         existing = self.connection.execute(
             "select id from tripwire_pull_requests where project_id = ? and github_pr_number = ?",
             (project_id, pr.number),
@@ -190,9 +204,10 @@ class LocalStore:
         self.connection.execute(
             """
             insert into tripwire_pull_requests (
-              id, project_id, github_pr_number, title, author_login, base_branch, head_branch, state, url, updated_at
+              id, project_id, github_pr_number, title, author_login, base_branch, head_branch, state, url,
+              last_seen_head_sha, merged_at, updated_at
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
             on conflict(project_id, github_pr_number) do update set
               title = excluded.title,
               author_login = excluded.author_login,
@@ -200,6 +215,8 @@ class LocalStore:
               head_branch = excluded.head_branch,
               state = excluded.state,
               url = excluded.url,
+              last_seen_head_sha = excluded.last_seen_head_sha,
+              merged_at = excluded.merged_at,
               updated_at = current_timestamp
             """,
             (
@@ -210,8 +227,10 @@ class LocalStore:
                 pr.author,
                 pr.base_ref,
                 pr.head_ref,
-                state,
+                state or pr.state.lower() or "open",
                 pr.url,
+                pr.head_sha,
+                pr.merged_at,
             ),
         )
         self.connection.commit()
@@ -286,7 +305,14 @@ class LocalStore:
             join tripwire_projects projects on projects.id = prs.project_id
             where projects.github_owner = ?
               and projects.github_repo = ?
-              and runs.outcome_state is not null
+              and (
+                runs.outcome_state is not null
+                or runs.inferred_signal in (
+                  'pr_updated_after_finding_no_current_finding',
+                  'pr_updated_after_suppressed_finding_no_current_finding',
+                  'pr_updated_after_suppressed_finding_now_finding'
+                )
+              )
             order by runs.created_at desc
             limit ?
             """,
@@ -340,6 +366,46 @@ class LocalStore:
             }
             for row in rows
         ]
+
+    def previous_pr_review_runs(self, pull_request_id: str, *, exclude_run_id: str) -> list[dict[str, object]]:
+        rows = self.connection.execute(
+            """
+            select id, output_text, diff_summary, inferred_signal, outcome_state
+            from tripwire_review_runs
+            where pull_request_id = ?
+              and id <> ?
+              and outcome_state is null
+            order by created_at desc
+            """,
+            (pull_request_id, exclude_run_id),
+        ).fetchall()
+        previous: list[dict[str, object]] = []
+        for row in rows:
+            try:
+                diff_summary = json.loads(row[2] or "{}")
+            except json.JSONDecodeError:
+                diff_summary = {}
+            previous.append(
+                {
+                    "id": str(row[0]),
+                    "output_text": row[1] or "",
+                    "diff_summary": diff_summary,
+                    "inferred_signal": row[3] or "",
+                    "outcome_state": row[4] or "",
+                }
+            )
+        return previous
+
+    def set_review_run_inferred_signal(self, review_run_id: str, inferred_signal: str) -> None:
+        self.connection.execute(
+            """
+            update tripwire_review_runs
+            set inferred_signal = ?
+            where id = ?
+            """,
+            (inferred_signal, review_run_id),
+        )
+        self.connection.commit()
 
     def review_run_output(self, review_run_id: str) -> dict[str, str]:
         row = self.connection.execute(
@@ -495,6 +561,8 @@ class SupabaseStore:
                     "head_branch": pr.head_ref,
                     "state": state,
                     "url": pr.url,
+                    "last_seen_head_sha": pr.head_sha,
+                    "merged_at": pr.merged_at,
                 }
             ],
         )
@@ -566,6 +634,16 @@ class SupabaseStore:
                 }
                 for finding in findings
             ],
+        )
+
+    def previous_pr_review_runs(self, pull_request_id: str, *, exclude_run_id: str) -> list[dict[str, object]]:
+        return []
+
+    def set_review_run_inferred_signal(self, review_run_id: str, inferred_signal: str) -> None:
+        self._request(
+            "PATCH",
+            f"tripwire_review_runs?id=eq.{quote_filter(review_run_id)}",
+            {"inferred_signal": inferred_signal},
         )
 
 
