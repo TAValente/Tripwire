@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from .ai import AIConfig, AIReviewError, ai_review
+from .grounding import GroundingResult, validate_grounding
 from .heuristics import local_findings
 from .models import ReviewInput
 from .personas import PERSONAS
@@ -12,14 +13,20 @@ from .prompt import build_review_prompt
 NO_FINDINGS = "No high-confidence strategic findings detected."
 
 
-def build_alignment_retry_prompt(prompt: str) -> str:
+def build_alignment_retry_prompt(prompt: str, problems: tuple[str, ...] = ()) -> str:
+    problem_text = "\n".join(f"- {problem}" for problem in problems)
+    problem_block = (
+        f"The previous response failed these validation checks:\n{problem_text}\n\n"
+        if problems
+        else "The previous response used the legacy green-check sentence as the whole review. "
+    )
     return "\n\n".join(
         [
             prompt,
             "# Required Correction",
             (
-                "The previous response used the legacy green-check sentence as the whole review. "
-                "That is not a valid Tripwire review anymore. Produce the review again using exactly these sections: "
+                f"{problem_block}"
+                "That is not a valid Tripwire review. Produce the review again using exactly these sections: "
                 "Project Understanding, Alignment Assessment, Findings, Emergent Concerns, "
                 "Suppressed / Calibration, Confidence Limits. "
                 "Findings may be `None.` and Suppressed / Calibration may be `None.`, but the Alignment Assessment "
@@ -31,7 +38,7 @@ def build_alignment_retry_prompt(prompt: str) -> str:
     )
 
 
-def alignment_unavailable_output(review_input: ReviewInput) -> str:
+def alignment_unavailable_output(review_input: ReviewInput, problems: tuple[str, ...] = ()) -> str:
     doctrine_paths = {document.path for document in review_input.doctrine}
 
     def rating(path: str) -> str:
@@ -60,7 +67,7 @@ def alignment_unavailable_output(review_input: ReviewInput) -> str:
             f"Economics: {economics}",
             f"Architecture: {architecture}",
             f"Roadmap/decisions: {roadmap_decisions}",
-            "Key confidence limits: The configured AI model did not produce the required alignment review after a retry.",
+            "Key confidence limits: The configured AI model did not produce a grounded alignment review after a retry.",
             "",
             "Alignment Assessment",
             "",
@@ -68,7 +75,7 @@ def alignment_unavailable_output(review_input: ReviewInput) -> str:
             "Direction: unknown",
             "PR Causality: unknown" if review_input.diff.strip() else "Causality: not tied to one PR",
             "Confidence: high",
-            "Evidence: Tripwire could assemble the review packet, but the model returned a legacy no-findings response instead of judging project priorities.",
+            "Evidence: Tripwire could assemble the review packet, but the model output failed grounding validation.",
             "",
             "Findings",
             "",
@@ -84,9 +91,18 @@ def alignment_unavailable_output(review_input: ReviewInput) -> str:
             "",
             "Confidence Limits",
             "",
-            "Tripwire did not receive a valid alignment assessment from the configured model. Inspect the prompt with --prompt-only, retry, or use a stronger local model before treating this as a substantive review.",
+            "Tripwire did not receive a valid grounded alignment assessment from the configured model. Inspect the prompt with --prompt-only, retry, or use a stronger local model before treating this as a substantive review.",
+            *(["", "Validation errors:", *[f"- {problem}" for problem in problems]] if problems else []),
         ]
     )
+
+
+def validate_ai_review_output(review_input: ReviewInput, output: str) -> GroundingResult:
+    if output == NO_FINDINGS:
+        return GroundingResult(False, ("Legacy no-findings sentence is not a complete alignment review.",))
+    if output.startswith("Project Understanding"):
+        return validate_grounding(review_input, output)
+    return GroundingResult(True)
 
 
 def clean_ai_output(output: str) -> str:
@@ -174,19 +190,25 @@ def review(
         ai_warning = f"\nAI provider warning: {exc}\n"
     if ai_result:
         ai_result = clean_ai_output(ai_result)
-        if ai_result == NO_FINDINGS:
+        validation = validate_ai_review_output(review_input, ai_result)
+        if not validation.ok:
             try:
                 retry_result = ai_review(
-                    build_alignment_retry_prompt(prompt),
+                    build_alignment_retry_prompt(prompt, validation.errors),
                     config=AIConfig(provider=provider, model=model),
                 )
             except AIReviewError:
                 retry_result = ""
             retry_result = clean_ai_output(retry_result) if retry_result else ""
-            if retry_result and retry_result != NO_FINDINGS:
+            retry_validation = (
+                validate_ai_review_output(review_input, retry_result)
+                if retry_result
+                else GroundingResult(False, ("Retry produced no output.",))
+            )
+            if retry_result and retry_validation.ok:
                 ai_result = retry_result
             else:
-                ai_result = alignment_unavailable_output(review_input)
+                ai_result = alignment_unavailable_output(review_input, retry_validation.errors)
         if findings:
             rendered_findings = "\n\n---\n\n".join(finding.render() for finding in findings)
             ai_text = ai_result.strip()

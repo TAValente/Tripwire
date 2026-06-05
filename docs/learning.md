@@ -16,6 +16,8 @@ When there are no findings, Tripwire should still make the alignment judgment vi
 
 Tripwire should distinguish unchanged from unknown. Unchanged means it inspected enough to believe there was no meaningful movement. Unknown means it lacks enough evidence to make that claim.
 
+Tripwire should reject ungrounded alignment output. If the model cannot tie project-understanding, alignment, findings, or emergent concerns back to evidence in the review packet, Tripwire should say confidence is limited instead of showing a polished hallucination.
+
 When Tripwire is uncertain, it may ask calibration questions that improve future judgment. These questions should be clearly marked as calibration, not treated as blocking findings.
 
 Tripwire should make the user better at evaluating AI output, not less responsible for it.

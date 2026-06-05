@@ -87,9 +87,13 @@ class ReviewerTests(unittest.TestCase):
         self.assertIn("Confidence Limits", output)
 
     def test_alignment_retry_prompt_rejects_legacy_green_check(self):
-        prompt = build_alignment_retry_prompt("Original prompt")
+        prompt = build_alignment_retry_prompt(
+            "Original prompt",
+            ("Alignment Assessment missing field: Evidence:",),
+        )
 
-        self.assertIn("legacy green-check sentence", prompt)
+        self.assertIn("failed these validation checks", prompt)
+        self.assertIn("Alignment Assessment missing field: Evidence:", prompt)
         self.assertIn("Project Understanding", prompt)
         self.assertIn("Alignment Assessment", prompt)
         self.assertIn("Emergent Concerns", prompt)
