@@ -2,6 +2,54 @@
 
 This roadmap is organized around review quality and project drift prevention, not feature volume.
 
+## Next Work Item: Doctrine Understanding Cache
+
+Improve review power cheaply by helping the local model understand doctrine before each review.
+
+Tripwire should create a cached project understanding packet from doctrine docs. The cache should be keyed by doctrine file hashes and reused in PR review and project scan so the model does not have to rediscover the project from scratch every run.
+
+This is not embeddings yet. Start with a local, structured, inspectable cache.
+
+Purpose:
+
+Tripwire's hardest job is not reading more files. It is understanding what the project is trying to build, what matters now, and whether current work makes those priorities better, worse, unchanged, or unknown. A doctrine understanding cache should make cheap local models more effective by giving them stable, high-signal context every time.
+
+The cached packet should include:
+
+- project purpose
+- current phase
+- what matters most right now
+- non-goals
+- architecture constraints
+- economics constraints
+- anti-patterns
+- important decisions
+- open tensions or contradictions
+- review guidance and what Tripwire should watch for
+
+Requirements:
+
+- local-first storage
+- invalidates when doctrine files change
+- inspectable by the user
+- raw doctrine docs remain authoritative
+- cached understanding is a compact aid to review quality, not a replacement for doctrine
+- cached understanding must not become an unchallengeable source of truth
+- if the cache is low-confidence, stale, or inconsistent with doctrine, Tripwire should disclose that rather than confidently reviewing from it
+
+This is different from PR review memory. Doctrine cache is reusable context. PR memory is historical evidence about prior reviews, feedback, false positives, ignored findings, and changed PR outcomes.
+
+MVP shape:
+
+1. Compute hashes for loaded doctrine docs.
+2. Generate a structured project understanding packet from those docs.
+3. Store it locally with the source hashes and confidence notes.
+4. Reuse it in PR review and project scan.
+5. Add a CLI/UI inspection command so the user can see the packet and source hashes.
+6. Disclose stale, missing, low-confidence, or contradictory doctrine understanding in review output.
+
+Embeddings can come later if doctrine or repo context becomes too large. For now, structured cached understanding is higher leverage, easier to inspect, and easier to debug.
+
 ## 1. Judgment MVP
 
 Prove that Tripwire can review realistic diffs and identify meaningful project-alignment issues without becoming noisy.
