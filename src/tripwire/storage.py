@@ -18,6 +18,16 @@ class StorageError(RuntimeError):
     pass
 
 
+VALID_OUTCOME_STATES = (
+    "useful",
+    "false_positive",
+    "not_worth_blocking",
+    "accepted_risk",
+    "fixed_before_merge",
+    "needs_followup",
+)
+
+
 SQLITE_SCHEMA = """
 create table if not exists tripwire_projects (
   id text primary key,
@@ -58,6 +68,9 @@ create table if not exists tripwire_review_runs (
   doctrine_snapshot text not null default '[]',
   diff_summary text not null default '{}',
   output_text text not null default '',
+  inferred_signal text,
+  outcome_state text,
+  outcome_note text not null default '',
   created_at text not null default current_timestamp
 );
 
@@ -121,7 +134,22 @@ class LocalStore:
         self.connection = sqlite3.connect(self.db_path)
         self.connection.execute("pragma foreign_keys = on")
         self.connection.executescript(SQLITE_SCHEMA)
+        self._ensure_review_run_columns()
         self.connection.commit()
+
+    def _ensure_review_run_columns(self) -> None:
+        existing_columns = {
+            row[1]
+            for row in self.connection.execute("pragma table_info(tripwire_review_runs)").fetchall()
+        }
+        columns = {
+            "inferred_signal": "text",
+            "outcome_state": "text",
+            "outcome_note": "text not null default ''",
+        }
+        for column, definition in columns.items():
+            if column not in existing_columns:
+                self.connection.execute(f"alter table tripwire_review_runs add column {column} {definition}")
 
     def close(self) -> None:
         self.connection.close()
@@ -200,14 +228,16 @@ class LocalStore:
         doctrine: tuple[DoctrineDocument, ...],
         diff_summary: dict[str, object],
         output_text: str,
+        inferred_signal: str | None = None,
     ) -> str:
         review_run_id = str(uuid4())
         self.connection.execute(
             """
             insert into tripwire_review_runs (
-              id, pull_request_id, trigger, provider, model, user_concerns, doctrine_snapshot, diff_summary, output_text
+              id, pull_request_id, trigger, provider, model, user_concerns, doctrine_snapshot, diff_summary,
+              output_text, inferred_signal
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 review_run_id,
@@ -219,10 +249,60 @@ class LocalStore:
                 json.dumps([asdict(document) for document in doctrine]),
                 json.dumps(diff_summary),
                 output_text,
+                inferred_signal,
             ),
         )
         self.connection.commit()
         return review_run_id
+
+    def set_review_run_outcome(self, review_run_id: str, outcome_state: str, outcome_note: str = "") -> None:
+        result = self.connection.execute(
+            """
+            update tripwire_review_runs
+            set outcome_state = ?,
+                outcome_note = ?,
+                inferred_signal = coalesce(inferred_signal, 'review_stored_no_feedback')
+            where id = ?
+            """,
+            (outcome_state, outcome_note, review_run_id),
+        )
+        self.connection.commit()
+        if result.rowcount == 0:
+            raise StorageError(f"Unknown Tripwire review run: {review_run_id}")
+
+    def recent_review_outcomes(self, repo: str, limit: int = 5) -> list[dict[str, str]]:
+        owner, name = repo.split("/", 1)
+        rows = self.connection.execute(
+            """
+            select
+              runs.id,
+              runs.outcome_state,
+              runs.outcome_note,
+              runs.inferred_signal,
+              prs.github_pr_number,
+              prs.title
+            from tripwire_review_runs runs
+            join tripwire_pull_requests prs on prs.id = runs.pull_request_id
+            join tripwire_projects projects on projects.id = prs.project_id
+            where projects.github_owner = ?
+              and projects.github_repo = ?
+              and runs.outcome_state is not null
+            order by runs.created_at desc
+            limit ?
+            """,
+            (owner, name, limit),
+        ).fetchall()
+        return [
+            {
+                "id": str(row[0]),
+                "outcome_state": row[1] or "",
+                "outcome_note": row[2] or "",
+                "inferred_signal": row[3] or "",
+                "pr_number": str(row[4]),
+                "pr_title": row[5] or "",
+            }
+            for row in rows
+        ]
 
     def create_findings(self, review_run_id: str, findings: list[Finding]) -> None:
         if not findings:
@@ -360,6 +440,7 @@ class SupabaseStore:
         doctrine: tuple[DoctrineDocument, ...],
         diff_summary: dict[str, object],
         output_text: str,
+        inferred_signal: str | None = None,
     ) -> str:
         rows = self._request(
             "POST",
@@ -374,10 +455,22 @@ class SupabaseStore:
                     "doctrine_snapshot": [asdict(document) for document in doctrine],
                     "diff_summary": diff_summary,
                     "output_text": output_text,
+                    "inferred_signal": inferred_signal,
                 }
             ],
         )
         return rows[0]["id"]  # type: ignore[index]
+
+    def set_review_run_outcome(self, review_run_id: str, outcome_state: str, outcome_note: str = "") -> None:
+        self._request(
+            "PATCH",
+            f"tripwire_review_runs?id=eq.{quote_filter(review_run_id)}",
+            {
+                "outcome_state": outcome_state,
+                "outcome_note": outcome_note,
+                "inferred_signal": "review_stored_no_feedback",
+            },
+        )
 
     def create_findings(self, review_run_id: str, findings: list[Finding]) -> None:
         if not findings:

@@ -1,10 +1,40 @@
 from __future__ import annotations
 
+import re
+
 from .ai import AIConfig, AIReviewError, ai_review
 from .heuristics import local_findings
 from .models import ReviewInput
 from .personas import PERSONAS
 from .prompt import build_review_prompt
+
+
+NO_FINDINGS = "No high-confidence strategic findings detected."
+
+
+def clean_ai_output(output: str) -> str:
+    text = output.strip()
+    text = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
+    text = re.sub(r"(?is)</?think>", "", text).strip()
+    text = re.sub(r"(?is)^thinking\.\.\..*?\.\.\.done thinking\.\s*", "", text).strip()
+
+    allowed_starts = ("Mistakes to Correct", "Concrete Improvers", NO_FINDINGS)
+    matches: list[tuple[int, str]] = []
+    for marker in allowed_starts:
+        match = re.search(rf"(?m)^{re.escape(marker)}(?:\s*$|\s*\n)", text)
+        if match:
+            matches.append((match.start(), marker))
+    if matches:
+        index, _marker = min(matches, key=lambda item: item[0])
+        text = text[index:].strip()
+
+    if text.lower().startswith("jedis"):
+        text = text[5:].strip()
+
+    if not text.startswith(allowed_starts):
+        return NO_FINDINGS
+
+    return text or NO_FINDINGS
 
 
 def missing_doctrine_improver(review_input: ReviewInput) -> str:
@@ -52,10 +82,11 @@ def review(
         ai_result = None
         ai_warning = f"\nAI provider warning: {exc}\n"
     if ai_result:
+        ai_result = clean_ai_output(ai_result)
         if findings:
             rendered_findings = "\n\n---\n\n".join(finding.render() for finding in findings)
             ai_text = ai_result.strip()
-            if ai_text == "No high-confidence strategic findings detected.":
+            if ai_text == NO_FINDINGS:
                 ai_text = ""
             improver = missing_doctrine_improver(review_input)
             return "\n".join(
@@ -72,7 +103,7 @@ def review(
                 if part != ""
             )
         improver = missing_doctrine_improver(review_input)
-        if improver and ai_result.strip() == "No high-confidence strategic findings detected.":
+        if improver and ai_result.strip() == NO_FINDINGS:
             return improver
         if improver:
             return f"{ai_result}\n\n---\n\n{improver}"

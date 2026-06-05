@@ -64,21 +64,25 @@ PERSONAS = (
     ),
     Persona(
         name="Economics Watchdog",
-        purpose="Find API cost, infrastructure cost, latency, scaling, and operational burden regressions.",
+        purpose="Find material cost, marginal cost, latency, scaling, sensitive-data, and operational burden regressions.",
         uses_when=(
             "The PR adds or expands AI calls, data fetching, background work, caching, storage, or hosting needs.",
             "A change increases per-user, per-request, or per-review cost.",
             "The implementation may make local development or deployment materially heavier.",
+            "A change stores sensitive data, creates unbounded growth, or adds operational complexity without a clear payoff.",
         ),
         avoids=(
             "Premature scaling advice when usage is intentionally small.",
             "Cost warnings when the marginal cost is clearly bounded or one-time.",
             "Treating every new dependency as an economics issue.",
+            "Flagging bounded logging, review memory, evaluation storage, or model-adjacent records merely because they exist.",
         ),
         example_questions=(
             "Did this increase marginal cost per user interaction?",
             "Is the new cost bounded, cached, or explicitly justified?",
             "Does this add operational burden before the project phase needs it?",
+            "Is this cost serving user value, product evaluation, operational reliability, developer convenience, or unclear accumulation?",
+            "Could bounded instrumentation prevent more expensive product mistakes?",
         ),
         minimum_docs=(
             "Economics notes for paid APIs, model calls, hosting, storage, and expected usage scale.",

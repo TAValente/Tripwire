@@ -39,6 +39,9 @@ create table if not exists tripwire_review_runs (
   doctrine_snapshot jsonb not null default '[]'::jsonb,
   diff_summary jsonb not null default '{}'::jsonb,
   output_text text not null default '',
+  inferred_signal text,
+  outcome_state text,
+  outcome_note text not null default '',
   created_at timestamptz not null default now()
 );
 

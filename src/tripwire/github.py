@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from .doctrine import DOCTRINE_PATHS
 from .models import DoctrineDocument, ReviewInput, ReviewMode
@@ -10,6 +12,16 @@ from .models import DoctrineDocument, ReviewInput, ReviewMode
 
 class GitHubError(RuntimeError):
     pass
+
+
+def gh_executable() -> str | None:
+    path = shutil.which("gh")
+    if path:
+        return path
+    common_windows_path = Path("C:/Program Files/GitHub CLI/gh.exe")
+    if common_windows_path.exists():
+        return str(common_windows_path)
+    return None
 
 
 @dataclass(frozen=True)
@@ -35,8 +47,14 @@ class Repository:
 
 
 def run_gh(args: list[str]) -> str:
+    executable = gh_executable()
+    if executable is None:
+        raise GitHubError(
+            "GitHub CLI (`gh`) was not found on PATH. Install GitHub CLI, authenticate with `gh auth login`, "
+            "then rerun the command."
+        )
     result = subprocess.run(
-        ["gh", *args],
+        [executable, *args],
         text=True,
         capture_output=True,
         check=False,
