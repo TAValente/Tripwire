@@ -46,3 +46,5 @@ Tripwire should feel like an out-of-the-box local project helper after setup. Th
 PR review and project scan are different workflows. PR review should ask whether a change introduced or worsened a meaningful issue. Project scan should ask whether the project is accumulating drift, doctrine conflicts, stale assumptions, or review-quality problems across changes.
 
 Both lanes must make their review target visible. PR review should combine the PR diff with the target repository's doctrine from the PR base branch. Project scan should name the repository being scanned and disclose whether enough doctrine exists for substantive review before making broad drift claims.
+
+The next review-quality improvement should be a local doctrine understanding cache. It should turn doctrine docs into an inspectable project understanding packet, keyed by doctrine file hashes, and reuse that packet in PR review and project scan. This should improve cheap local model performance before adding embeddings. Raw doctrine remains authoritative.
