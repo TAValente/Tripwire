@@ -15,3 +15,11 @@ A green check should not become blind trust. When Tripwire finds nothing, that m
 When Tripwire is uncertain, it may ask calibration questions that improve future judgment. These questions should be clearly marked as calibration, not treated as blocking findings.
 
 Tripwire should make the user better at evaluating AI output, not less responsible for it.
+
+## Suppressed Findings
+
+When Tripwire has no finding, it may show one suppressed finding if doing so improves judgment calibration.
+
+A suppressed finding is not a finding. It should explain the strongest near-miss Tripwire considered, why it stayed below the bar, and what evidence would change that judgment.
+
+Tripwire should not invent suppressed findings to prove it did work. Silence remains better than fake signal.
