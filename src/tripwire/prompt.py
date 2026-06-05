@@ -50,7 +50,22 @@ def build_review_prompt(review_input: ReviewInput) -> str:
             "conflicting assumptions, and decision violations. Do not limit yourself "
             "to the diff."
         ),
+        ReviewMode.PROJECT_SCAN: (
+            "Project scan mode: analyze longer-running project risks that may not be tied to one PR. "
+            "Prioritize doctrine inconsistencies, doctrine conflicts, stale current-phase assumptions, "
+            "architecture/economics contradictions, and accumulated drift."
+        ),
     }[review_input.mode]
+
+    if review_input.mode == ReviewMode.PROJECT_SCAN:
+        scope_discipline = """- Do not require a PR or diff cause. This scan is allowed to flag accumulated project risks.
+- Doctrine conflict findings must cite the conflicting doctrine docs or sections and explain why the conflict would slow the project down.
+- If a doctrine inconsistency is ambiguous, prefer a Concrete Improver that asks for a clearer doctrine decision instead of pretending certainty.
+- Do not turn the scan into a broad code review. Focus on project direction, doctrine consistency, architecture/economics alignment, and review quality."""
+    else:
+        scope_discipline = """- A finding must be caused or materially worsened by this diff. Do not flag pre-existing project risks unless the diff expands, hides, or depends on that risk.
+- Evidence must cite what changed. If the evidence could apply equally to unrelated PRs, it is not a valid finding.
+- Do not flag AI economics merely because a diff touches chat, model-run, logging, auth, storage, README, or environment docs. Flag AI economics only when the diff adds or expands model calls, increases prompt/context size, adds background AI work, removes cost bounds, or makes usage scale with users/data in a new way."""
 
     return f"""You are Tripwire, an adversarial project consistency reviewer.
 
@@ -69,9 +84,7 @@ Review discipline:
 - Every finding must pass the leverage test: it should speed up the project, catch a meaningful oversight, reduce future rework, or otherwise contribute to project success.
 - Stay silent when feedback would mainly create ceremony, preference churn, or author friction without a clear project payoff.
 - A finding must identify a direct contradiction with doctrine, economics, architecture, phase guidance, or an existing decision.
-- A finding must be caused or materially worsened by this diff. Do not flag pre-existing project risks unless the diff expands, hides, or depends on that risk.
-- Evidence must cite what changed. If the evidence could apply equally to unrelated PRs, it is not a valid finding.
-- Do not flag AI economics merely because a diff touches chat, model-run, logging, auth, storage, README, or environment docs. Flag AI economics only when the diff adds or expands model calls, increases prompt/context size, adds background AI work, removes cost bounds, or makes usage scale with users/data in a new way.
+{scope_discipline}
 - Do not create findings merely because a change lacks extra documentation.
 - Do not flag unused functions, missing tests, naming issues, or ordinary implementation completeness unless they directly contradict doctrine or create clear project drift.
 - Do not create findings for CLI-only changes that support review, prompt inspection, diff loading, evals, or terminal output during the MVP phase.

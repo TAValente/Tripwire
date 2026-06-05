@@ -116,6 +116,27 @@ Exit criteria:
 3. The UI does not change Tripwire's local-first architecture.
 4. The CLI remains available and authoritative.
 
+## 4.2. Project Scan
+
+Run a less frequent review that is not tied to one PR.
+
+Purpose:
+
+PR review should judge whether a PR introduced or worsened a meaningful issue. Project scan should catch longer-running problems that accumulate across PRs.
+
+Scope:
+
+- doctrine inconsistencies
+- doctrine conflicts
+- stale current-phase assumptions
+- architecture/economics contradictions
+- accumulated project drift
+- repeated false positives that suggest doctrine or reviewer calibration needs work
+
+Doctrine conflicts are a first-class scan concern. A useful scan finding should cite the conflicting docs or sections and explain how the conflict would slow the project down.
+
+Project scan should not become a broad code review. It should stay focused on project direction, doctrine consistency, and review quality.
+
 ## 4.5. Doctrine Lifecycle Management
 
 Doctrine Lifecycle Management is a future phase for keeping project doctrine stable enough to prevent drift while still allowing evidence-based evolution.

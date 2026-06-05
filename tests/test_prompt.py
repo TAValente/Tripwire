@@ -30,9 +30,23 @@ class PromptTests(unittest.TestCase):
         self.assertIn("caused or materially worsened by this diff", prompt)
         self.assertIn("Evidence must cite what changed", prompt)
         self.assertIn("Do not flag AI economics merely because", prompt)
-        self.assertIn("caused or materially worsened by this diff", prompt)
-        self.assertIn("Evidence must cite what changed", prompt)
-        self.assertIn("Do not flag AI economics merely because", prompt)
+
+    def test_project_scan_prompt_prioritizes_doctrine_conflicts(self):
+        review_input = ReviewInput(
+            mode=ReviewMode.PROJECT_SCAN,
+            diff="",
+            doctrine=(DoctrineDocument("docs/current_phase.md", "Avoid hosted apps."),),
+            repository_context="Tripwire doctrine completeness",
+            source_description="Project scan",
+        )
+
+        prompt = build_review_prompt(review_input)
+
+        self.assertIn("Project scan mode", prompt)
+        self.assertIn("doctrine inconsistencies", prompt)
+        self.assertIn("Doctrine conflict findings must cite", prompt)
+        self.assertIn("Do not require a PR or diff cause", prompt)
+        self.assertNotIn("caused or materially worsened by this diff", prompt)
 
 
 if __name__ == "__main__":

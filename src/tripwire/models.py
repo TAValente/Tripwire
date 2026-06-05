@@ -10,6 +10,7 @@ class ReviewMode(str, Enum):
     STANDARD = "standard"
     PARANOID = "paranoid"
     ARCHITECTURE = "architecture"
+    PROJECT_SCAN = "project_scan"
 
 
 @dataclass(frozen=True)

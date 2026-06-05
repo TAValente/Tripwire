@@ -11,7 +11,9 @@ from urllib.parse import parse_qs, urlparse
 
 from .cli import attach_review_feedback, mark_missing_target_doctrine, render_memory_stats, store_pr_review
 from .doctor import render_doctor
+from .doctrine import load_doctrine, render_doctrine_completeness
 from .github import GitHubError, fetch_pr_review_input, list_open_prs, list_repositories
+from .models import ReviewInput, ReviewMode
 from .reviewer import review as run_review
 from .storage import StorageError, VALID_OUTCOME_STATES, create_store
 
@@ -241,6 +243,7 @@ INDEX_HTML = """<!doctype html>
         <h2>Readiness</h2>
         <div class="row">
           <button id="doctorBtn" class="primary" type="button">Run Doctor</button>
+          <button id="scanBtn" type="button">Project Scan</button>
           <button id="memoryBtn" type="button">Memory</button>
         </div>
         <div id="readyStatus" class="status"></div>
@@ -390,6 +393,30 @@ INDEX_HTML = """<!doctype html>
         const data = await api("/api/memory");
         show(data.output);
         readyStatus.textContent = "Memory loaded";
+        readyStatus.className = "status";
+      } catch (error) {
+        readyStatus.textContent = error.message;
+        readyStatus.className = "status bad";
+        show(error.message);
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    document.getElementById("scanBtn").addEventListener("click", async () => {
+      readyStatus.textContent = "Scanning...";
+      readyStatus.className = "status";
+      show("Running project scan...");
+      setBusy(true);
+      try {
+        const data = await api("/api/scan");
+        show([
+          "Project scan",
+          `Doctrine docs: ${(data.doctrineDocs || []).length}`,
+          "",
+          data.output
+        ].join("\\n"));
+        readyStatus.textContent = "Scan complete";
         readyStatus.className = "status";
       } catch (error) {
         readyStatus.textContent = error.message;
@@ -567,6 +594,24 @@ def make_handler(state: UiState) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/api/doctor":
                 output, ready = render_doctor(state.root, provider=state.provider, model=state.model)
                 self.send_json({"ok": True, "ready": ready, "output": output})
+                return
+            if parsed.path == "/api/scan":
+                doctrine = load_doctrine(state.root)
+                review_input = ReviewInput(
+                    mode=ReviewMode.PROJECT_SCAN,
+                    diff="",
+                    doctrine=doctrine,
+                    repository_context=render_doctrine_completeness(state.root),
+                    source_description="Project scan",
+                )
+                output = run_review(review_input, provider=state.provider, model=state.model)
+                self.send_json(
+                    {
+                        "ok": True,
+                        "output": output,
+                        "doctrineDocs": [document.path for document in doctrine],
+                    }
+                )
                 return
             if parsed.path == "/api/memory":
                 self.send_json({"ok": True, "output": render_memory_stats(state.root)})

@@ -13,6 +13,7 @@ From PowerShell in this repo, use the local wrapper:
 ```powershell
 .\tw.cmd doctor
 .\tw.cmd ui
+.\tw.cmd scan
 .\tw.cmd review-pr TAValente/TrainingTweaks 5
 .\tw.cmd eval
 ```
@@ -26,6 +27,7 @@ python -m tripwire review main
 python -m tripwire review-pr TAValente/Tripwire 12
 python -m tripwire github
 python -m tripwire ui
+python -m tripwire scan
 python -m tripwire personas
 python -m tripwire doctrine
 python -m tripwire doctor --provider ollama --model qwen3:8b
@@ -149,6 +151,14 @@ tripwire doctor --provider ollama --model qwen3:8b
 ```
 
 Doctor checks package import, doctrine completeness, GitHub CLI/auth, and the configured AI provider/model.
+
+Run a project scan:
+
+```powershell
+.\tw.cmd scan
+```
+
+Project scan is not tied to one PR. It looks for longer-running drift, especially doctrine inconsistencies, doctrine conflicts, stale phase assumptions, and architecture/economics contradictions.
 
 Run the local control panel:
 

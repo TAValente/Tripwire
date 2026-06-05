@@ -62,6 +62,17 @@ class HeuristicTests(unittest.TestCase):
 
         self.assertEqual(local_findings(make_input(diff)), [])
 
+    def test_project_scan_allows_empty_diff(self):
+        review_input = ReviewInput(
+            mode=ReviewMode.PROJECT_SCAN,
+            diff="",
+            doctrine=(TRIPWIRE_PHASE_DOCTRINE,),
+            repository_context="",
+            source_description="Project scan",
+        )
+
+        self.assertEqual(local_findings(review_input), [])
+
 
 if __name__ == "__main__":
     unittest.main()
