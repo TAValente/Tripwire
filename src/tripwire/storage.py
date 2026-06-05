@@ -304,6 +304,77 @@ class LocalStore:
             for row in rows
         ]
 
+    def recent_review_runs(self, limit: int = 10) -> list[dict[str, object]]:
+        rows = self.connection.execute(
+            """
+            select
+              runs.id,
+              runs.created_at,
+              runs.output_text,
+              runs.outcome_state,
+              runs.inferred_signal,
+              runs.outcome_note,
+              prs.github_pr_number,
+              prs.title,
+              projects.github_owner || '/' || projects.github_repo as repo
+            from tripwire_review_runs runs
+            left join tripwire_pull_requests prs on prs.id = runs.pull_request_id
+            left join tripwire_projects projects on projects.id = prs.project_id
+            order by runs.created_at desc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [
+            {
+                "id": str(row[0]),
+                "created_at": row[1] or "",
+                "summary": review_output_summary(row[2] or ""),
+                "has_suppressed_finding": "Suppressed Finding" in (row[2] or ""),
+                "outcome_state": row[3] or "",
+                "inferred_signal": row[4] or "",
+                "outcome_note": row[5] or "",
+                "pr_number": str(row[6] or ""),
+                "pr_title": row[7] or "",
+                "repo": row[8] or "",
+            }
+            for row in rows
+        ]
+
+    def review_run_output(self, review_run_id: str) -> dict[str, str]:
+        row = self.connection.execute(
+            """
+            select
+              runs.id,
+              runs.created_at,
+              runs.output_text,
+              runs.outcome_state,
+              runs.inferred_signal,
+              runs.outcome_note,
+              prs.github_pr_number,
+              prs.title,
+              projects.github_owner || '/' || projects.github_repo as repo
+            from tripwire_review_runs runs
+            left join tripwire_pull_requests prs on prs.id = runs.pull_request_id
+            left join tripwire_projects projects on projects.id = prs.project_id
+            where runs.id = ?
+            """,
+            (review_run_id,),
+        ).fetchone()
+        if row is None:
+            raise StorageError(f"Unknown Tripwire review run: {review_run_id}")
+        return {
+            "id": str(row[0]),
+            "created_at": row[1] or "",
+            "output": row[2] or "",
+            "outcome_state": row[3] or "",
+            "inferred_signal": row[4] or "",
+            "outcome_note": row[5] or "",
+            "pr_number": str(row[6] or ""),
+            "pr_title": row[7] or "",
+            "repo": row[8] or "",
+        }
+
     def create_findings(self, review_run_id: str, findings: list[Finding]) -> None:
         if not findings:
             return
@@ -500,6 +571,20 @@ class SupabaseStore:
 
 def quote_filter(value: str) -> str:
     return urllib.parse.quote(value, safe="")
+
+
+def review_output_summary(output: str) -> str:
+    text = output.strip()
+    if not text:
+        return "No output stored."
+    if text.startswith("No high-confidence strategic findings detected."):
+        return "No high-confidence strategic findings detected."
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Title:"):
+            return stripped.removeprefix("Title:").strip()
+    first_line = text.splitlines()[0].strip()
+    return first_line[:120]
 
 
 def create_store() -> LocalStore | SupabaseStore:

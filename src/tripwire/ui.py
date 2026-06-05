@@ -190,6 +190,29 @@ INDEX_HTML = """<!doctype html>
       color: var(--muted);
       font-size: 12px;
     }
+    .history {
+      display: grid;
+      gap: 8px;
+      max-height: 300px;
+      overflow: auto;
+    }
+    .history-item {
+      width: 100%;
+      text-align: left;
+      display: grid;
+      gap: 4px;
+      background: #fbfcf8;
+      border-color: var(--line);
+    }
+    .history-title {
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+    .history-sub {
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
     pre {
       margin: 0;
       min-height: 420px;
@@ -273,6 +296,14 @@ INDEX_HTML = """<!doctype html>
         <button id="reviewBtn" class="primary" type="button">Review PR</button>
         <div id="reviewStatus" class="status"></div>
       </section>
+      <section class="stack">
+        <h2>Recent Reviews</h2>
+        <div class="row">
+          <button id="historyBtn" type="button">Refresh</button>
+        </div>
+        <div id="historyList" class="history"></div>
+        <div id="historyStatus" class="status"></div>
+      </section>
     </div>
     <section class="stack">
       <h2>Output</h2>
@@ -304,6 +335,8 @@ INDEX_HTML = """<!doctype html>
     const concernsInput = document.getElementById("concernsInput");
     const storeInput = document.getElementById("storeInput");
     const prList = document.getElementById("prList");
+    const historyList = document.getElementById("historyList");
+    const historyStatus = document.getElementById("historyStatus");
     const readyStatus = document.getElementById("readyStatus");
     const reviewStatus = document.getElementById("reviewStatus");
     const buttons = [...document.querySelectorAll("button")];
@@ -403,6 +436,69 @@ INDEX_HTML = """<!doctype html>
       }
     });
 
+    async function loadHistory() {
+      historyStatus.textContent = "Loading...";
+      historyStatus.className = "status";
+      try {
+        const data = await api("/api/reviews");
+        historyList.textContent = "";
+        if (!data.reviews.length) {
+          historyList.textContent = "No stored reviews.";
+        }
+        data.reviews.forEach((review) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "history-item";
+          const pr = review.repo && review.pr_number ? `${review.repo}#${review.pr_number}` : "Stored review";
+          const outcome = review.outcome_state ? ` · ${humanize(review.outcome_state)}` : "";
+          const suppressed = review.has_suppressed_finding ? " · suppressed" : "";
+          button.innerHTML = `<span class="history-title">${escapeHtml(pr)} ${escapeHtml(review.pr_title || "")}</span><span class="history-sub">${escapeHtml(review.summary)}${escapeHtml(outcome)}${escapeHtml(suppressed)}</span><span class="history-sub">${escapeHtml(review.created_at)} · ${escapeHtml(review.id)}</span>`;
+          button.addEventListener("click", () => openReviewRun(review.id));
+          historyList.appendChild(button);
+        });
+        historyStatus.textContent = `${data.reviews.length} stored review${data.reviews.length === 1 ? "" : "s"}`;
+      } catch (error) {
+        historyStatus.textContent = error.message;
+        historyStatus.className = "status bad";
+      }
+    }
+
+    async function openReviewRun(id) {
+      historyStatus.textContent = "Opening...";
+      historyStatus.className = "status";
+      setBusy(true);
+      try {
+        const data = await api(`/api/review-run?id=${encodeURIComponent(id)}`);
+        const header = [
+          `Stored review: ${data.review.repo || "unknown"}${data.review.pr_number ? "#" + data.review.pr_number : ""}`,
+          `Run: ${data.review.id}`,
+          `Created: ${data.review.created_at}`,
+          data.review.outcome_state ? `Outcome: ${humanize(data.review.outcome_state)}` : "Outcome: none",
+          data.review.inferred_signal ? `Inferred: ${data.review.inferred_signal}` : "Inferred: none",
+          data.review.outcome_note ? `Note: ${data.review.outcome_note}` : ""
+        ].filter(Boolean).join("\\n");
+        show(`${header}\\n\\n${data.review.output}`);
+        currentReviewRunId = data.review.id;
+        outcomePanel.hidden = false;
+        outcomeNote.value = data.review.outcome_note || "";
+        outcomePanel.querySelectorAll("button[data-outcome]").forEach((button) => {
+          button.classList.toggle("active", button.dataset.outcome === data.review.outcome_state);
+        });
+        outcomeStatus.textContent = data.review.outcome_state ? `Feedback logged: ${humanize(data.review.outcome_state)}` : "Stored review awaiting feedback";
+        outcomeStatus.className = data.review.outcome_state ? "status good" : "status";
+        historyStatus.textContent = "Opened";
+      } catch (error) {
+        historyStatus.textContent = error.message;
+        historyStatus.className = "status bad";
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    document.getElementById("historyBtn").addEventListener("click", () => {
+      loadHistory();
+    });
+
     document.getElementById("scanBtn").addEventListener("click", async () => {
       readyStatus.textContent = "Scanning...";
       readyStatus.className = "status";
@@ -489,6 +585,7 @@ INDEX_HTML = """<!doctype html>
         ].join("\\n");
         show(packet + "\\n\\n" + data.output + (data.reviewRunId ? `\\n\\nStored Tripwire review run: ${data.reviewRunId}` : ""));
         reviewStatus.textContent = data.reviewRunId ? "Reviewed and stored" : "Reviewed";
+        if (data.reviewRunId) loadHistory();
       } catch (error) {
         reviewStatus.textContent = error.message;
         reviewStatus.className = "status bad";
@@ -518,6 +615,7 @@ INDEX_HTML = """<!doctype html>
         outcomeStatus.textContent = `Feedback logged: ${outcomeLabels[data.outcome] || data.outcome}`;
         outcomeStatus.className = "status good";
         show(`${output.textContent}\\n\\nFeedback logged: ${outcomeLabels[data.outcome] || data.outcome}`);
+        loadHistory();
       } catch (error) {
         outcomeStatus.textContent = error.message;
         outcomeStatus.className = "status bad";
@@ -534,7 +632,12 @@ INDEX_HTML = """<!doctype html>
         .replaceAll('"', "&quot;");
     }
 
+    function humanize(value) {
+      return String(value || "").replaceAll("_", " ");
+    }
+
     loadRepos();
+    loadHistory();
   </script>
 </body>
 </html>
@@ -615,6 +718,34 @@ def make_handler(state: UiState) -> type[BaseHTTPRequestHandler]:
                 return
             if parsed.path == "/api/memory":
                 self.send_json({"ok": True, "output": render_memory_stats(state.root)})
+                return
+            if parsed.path == "/api/reviews":
+                store = create_store()
+                try:
+                    reviews = store.recent_review_runs(limit=10)
+                finally:
+                    close = getattr(store, "close", None)
+                    if close:
+                        close()
+                self.send_json({"ok": True, "reviews": reviews})
+                return
+            if parsed.path == "/api/review-run":
+                params = parse_qs(parsed.query)
+                review_run_id = (params.get("id") or [""])[0].strip()
+                if not review_run_id:
+                    self.send_error_json("Review run id is required.", HTTPStatus.BAD_REQUEST)
+                    return
+                store = create_store()
+                try:
+                    review = store.review_run_output(review_run_id)
+                except StorageError as exc:
+                    self.send_error_json(str(exc), HTTPStatus.NOT_FOUND)
+                    return
+                finally:
+                    close = getattr(store, "close", None)
+                    if close:
+                        close()
+                self.send_json({"ok": True, "review": review})
                 return
             if parsed.path == "/api/repos":
                 try:

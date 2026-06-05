@@ -5,7 +5,7 @@ from pathlib import Path
 from tripwire.models import Finding
 from tripwire.github import PullRequest
 from tripwire.models import DoctrineDocument
-from tripwire.storage import LocalStore
+from tripwire.storage import LocalStore, review_output_summary
 
 
 class StorageModelTests(unittest.TestCase):
@@ -66,6 +66,8 @@ class StorageModelTests(unittest.TestCase):
                 (review_run_id,),
             ).fetchone()
             recent_outcomes = store.recent_review_outcomes("TAValente/Tripwire")
+            recent_runs = store.recent_review_runs()
+            reopened = store.review_run_output(review_run_id)
             store.close()
 
         self.assertEqual(stats["counts"]["tripwire_projects"], 1)
@@ -74,6 +76,21 @@ class StorageModelTests(unittest.TestCase):
         self.assertIn("AI-adjacent", outcome[1])
         self.assertEqual(recent_outcomes[0]["outcome_state"], "false_positive")
         self.assertEqual(recent_outcomes[0]["pr_number"], "1")
+        self.assertEqual(recent_runs[0]["id"], review_run_id)
+        self.assertEqual(recent_runs[0]["repo"], "TAValente/Tripwire")
+        self.assertFalse(recent_runs[0]["has_suppressed_finding"])
+        self.assertEqual(reopened["output"], "No high-confidence strategic findings detected.")
+
+    def test_review_output_summary_prefers_finding_title(self):
+        output = "Mistakes to Correct\n\nTitle: Real Strategic Issue\n\nWhy: It matters."
+
+        self.assertEqual(review_output_summary(output), "Real Strategic Issue")
+
+    def test_review_output_summary_handles_no_findings(self):
+        self.assertEqual(
+            review_output_summary("No high-confidence strategic findings detected.\n\nSuppressed Finding"),
+            "No high-confidence strategic findings detected.",
+        )
 
 
 if __name__ == "__main__":
