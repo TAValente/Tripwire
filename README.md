@@ -14,6 +14,7 @@ From PowerShell in this repo, use the local wrapper:
 .\tw.cmd doctor
 .\tw.cmd ui
 .\tw.cmd scan
+.\tw.cmd scan TAValente/TrainingTweaks
 .\tw.cmd review-pr TAValente/TrainingTweaks 5
 .\tw.cmd eval
 ```
@@ -28,6 +29,7 @@ python -m tripwire review-pr TAValente/Tripwire 12
 python -m tripwire github
 python -m tripwire ui
 python -m tripwire scan
+python -m tripwire scan TAValente/TrainingTweaks
 python -m tripwire personas
 python -m tripwire doctrine
 python -m tripwire doctor --provider ollama --model qwen3:8b
@@ -156,9 +158,10 @@ Run a project scan:
 
 ```powershell
 .\tw.cmd scan
+.\tw.cmd scan TAValente/TrainingTweaks
 ```
 
-Project scan is not tied to one PR. It looks for longer-running drift, especially doctrine inconsistencies, doctrine conflicts, stale phase assumptions, and architecture/economics contradictions.
+Project scan is not tied to one PR. It looks for longer-running drift, especially doctrine inconsistencies, doctrine conflicts, stale phase assumptions, and architecture/economics contradictions. When a GitHub repo is supplied, Tripwire scans that repo's default-branch doctrine, README, and sampled file map instead of the current local checkout.
 
 When Tripwire has no high-confidence finding, it may include one `Suppressed Finding` as a calibration signal. Suppressed findings are non-blocking near-misses, not review findings.
 

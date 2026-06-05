@@ -44,6 +44,37 @@ def missing_doctrine_paths(root: Path) -> tuple[str, ...]:
     return tuple(path for path in DOCTRINE_PATHS if not (root / path).exists())
 
 
+def missing_doctrine_document_paths(documents: tuple[DoctrineDocument, ...]) -> tuple[str, ...]:
+    existing = {document.path for document in documents}
+    return tuple(path for path in DOCTRINE_PATHS if path not in existing)
+
+
+def render_doctrine_sufficiency(documents: tuple[DoctrineDocument, ...], *, source: str) -> str:
+    missing = missing_doctrine_document_paths(documents)
+    lines = [
+        "Doctrine sufficiency",
+        "",
+        f"Source: {source}",
+        f"Found: {len(documents)}/{len(DOCTRINE_PATHS)} doctrine docs",
+    ]
+    if documents:
+        lines.extend(["", "Found docs:"])
+        lines.extend(f"- {document.path}" for document in documents)
+    if missing:
+        lines.extend(["", "Missing docs:"])
+        lines.extend(f"- {path}: {DOCTRINE_PURPOSES[path]}" for path in missing)
+        lines.extend(
+            [
+                "",
+                "Substantive review: limited",
+                "Reason: Missing doctrine narrows Tripwire's ability to judge drift without inventing project intent.",
+            ]
+        )
+    else:
+        lines.extend(["", "Substantive review: available"])
+    return "\n".join(lines)
+
+
 def render_doctrine_completeness(root: Path) -> str:
     existing = load_doctrine(root)
     missing = missing_doctrine_paths(root)

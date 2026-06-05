@@ -11,8 +11,8 @@ from urllib.parse import parse_qs, urlparse
 
 from .cli import attach_review_feedback, mark_missing_target_doctrine, render_memory_stats, store_pr_review
 from .doctor import render_doctor
-from .doctrine import load_doctrine, render_doctrine_completeness
-from .github import GitHubError, fetch_pr_review_input, list_open_prs, list_repositories
+from .doctrine import load_doctrine, render_doctrine_completeness, render_doctrine_sufficiency
+from .github import GitHubError, fetch_pr_review_input, fetch_project_scan_input, list_open_prs, list_repositories
 from .models import ReviewInput, ReviewMode
 from .reviewer import review as run_review
 from .storage import StorageError, VALID_OUTCOME_STATES, create_store
@@ -450,9 +450,10 @@ INDEX_HTML = """<!doctype html>
           button.type = "button";
           button.className = "history-item";
           const pr = review.repo && review.pr_number ? `${review.repo}#${review.pr_number}` : "Stored review";
-          const outcome = review.outcome_state ? ` · ${humanize(review.outcome_state)}` : "";
-          const suppressed = review.has_suppressed_finding ? " · suppressed" : "";
-          button.innerHTML = `<span class="history-title">${escapeHtml(pr)} ${escapeHtml(review.pr_title || "")}</span><span class="history-sub">${escapeHtml(review.summary)}${escapeHtml(outcome)}${escapeHtml(suppressed)}</span><span class="history-sub">${escapeHtml(review.created_at)} · ${escapeHtml(review.id)}</span>`;
+          const outcome = review.outcome_state ? ` - ${humanize(review.outcome_state)}` : "";
+          const inferred = review.inferred_signal && review.inferred_signal !== "review_stored_no_feedback" ? ` - ${humanize(review.inferred_signal)}` : "";
+          const suppressed = review.has_suppressed_finding ? " - suppressed" : "";
+          button.innerHTML = `<span class="history-title">${escapeHtml(pr)} ${escapeHtml(review.pr_title || "")}</span><span class="history-sub">${escapeHtml(review.summary)}${escapeHtml(outcome)}${escapeHtml(inferred)}${escapeHtml(suppressed)}</span><span class="history-sub">${escapeHtml(review.created_at)} - ${escapeHtml(review.id)}</span>`;
           button.addEventListener("click", () => openReviewRun(review.id));
           historyList.appendChild(button);
         });
@@ -500,15 +501,18 @@ INDEX_HTML = """<!doctype html>
     });
 
     document.getElementById("scanBtn").addEventListener("click", async () => {
+      const repo = repoInput.value.trim();
       readyStatus.textContent = "Scanning...";
       readyStatus.className = "status";
-      show("Running project scan...");
+      show(`Running project scan${repo ? " for " + repo : ""}...`);
       setBusy(true);
       try {
-        const data = await api("/api/scan");
+        const path = repo ? `/api/scan?repo=${encodeURIComponent(repo)}` : "/api/scan";
+        const data = await api(path);
         show([
-          "Project scan",
+          data.sourceDescription || "Project scan",
           `Doctrine docs: ${(data.doctrineDocs || []).length}`,
+          data.doctrineSufficiency || "",
           "",
           data.output
         ].join("\\n"));
@@ -699,20 +703,34 @@ def make_handler(state: UiState) -> type[BaseHTTPRequestHandler]:
                 self.send_json({"ok": True, "ready": ready, "output": output})
                 return
             if parsed.path == "/api/scan":
-                doctrine = load_doctrine(state.root)
-                review_input = ReviewInput(
-                    mode=ReviewMode.PROJECT_SCAN,
-                    diff="",
-                    doctrine=doctrine,
-                    repository_context=render_doctrine_completeness(state.root),
-                    source_description="Project scan",
-                )
+                params = parse_qs(parsed.query)
+                repo = (params.get("repo") or [""])[0].strip()
+                if repo:
+                    try:
+                        review_input = fetch_project_scan_input(repo)
+                    except GitHubError as exc:
+                        self.send_error_json(str(exc), HTTPStatus.BAD_GATEWAY)
+                        return
+                else:
+                    doctrine = load_doctrine(state.root)
+                    review_input = ReviewInput(
+                        mode=ReviewMode.PROJECT_SCAN,
+                        diff="",
+                        doctrine=doctrine,
+                        repository_context=render_doctrine_completeness(state.root),
+                        source_description="Local project scan",
+                    )
                 output = run_review(review_input, provider=state.provider, model=state.model)
                 self.send_json(
                     {
                         "ok": True,
                         "output": output,
-                        "doctrineDocs": [document.path for document in doctrine],
+                        "doctrineDocs": [document.path for document in review_input.doctrine],
+                        "sourceDescription": review_input.source_description,
+                        "doctrineSufficiency": render_doctrine_sufficiency(
+                            review_input.doctrine,
+                            source=review_input.source_description,
+                        ),
                     }
                 )
                 return
