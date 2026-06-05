@@ -41,6 +41,15 @@ class ReviewerTests(unittest.TestCase):
 
         self.assertEqual(output, "No high-confidence strategic findings detected.")
 
+    def test_clean_ai_output_ignores_inline_no_findings_example(self):
+        output = clean_ai_output(
+            "A summary says `No high-confidence strategic findings detected.` is preserved.\n\n"
+            "---\n\n"
+            "Mistakes to Correct\nTitle: Real issue"
+        )
+
+        self.assertEqual(output, "Mistakes to Correct\nTitle: Real issue")
+
 
 if __name__ == "__main__":
     unittest.main()

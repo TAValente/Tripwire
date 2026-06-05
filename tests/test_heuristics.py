@@ -40,6 +40,28 @@ class HeuristicTests(unittest.TestCase):
     def test_ignores_empty_diff(self):
         self.assertEqual(local_findings(make_input("")), [])
 
+    def test_doctrine_update_can_justify_local_ui_surface(self):
+        diff = "\n".join(
+            [
+                "+- a simple local control panel that wraps common commands",
+                "+Tripwire should feel like an out-of-the-box local project helper after setup.",
+                "+from http.server import ThreadingHTTPServer",
+            ]
+        )
+
+        self.assertEqual(local_findings(make_input(diff)), [])
+
+    def test_doctrine_update_can_justify_local_storage(self):
+        diff = "\n".join(
+            [
+                "+- lightweight local storage when it directly improves review quality",
+                "+Local memory and evaluation storage are acceptable.",
+                "+sqlite3.connect(path)",
+            ]
+        )
+
+        self.assertEqual(local_findings(make_input(diff)), [])
+
 
 if __name__ == "__main__":
     unittest.main()

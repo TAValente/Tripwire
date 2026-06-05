@@ -19,11 +19,14 @@ def clean_ai_output(output: str) -> str:
     text = re.sub(r"(?is)^thinking\.\.\..*?\.\.\.done thinking\.\s*", "", text).strip()
 
     allowed_starts = ("Mistakes to Correct", "Concrete Improvers", NO_FINDINGS)
+    matches: list[tuple[int, str]] = []
     for marker in allowed_starts:
-        index = text.find(marker)
-        if index > 0:
-            text = text[index:].strip()
-            break
+        match = re.search(rf"(?m)^{re.escape(marker)}(?:\s*$|\s*\n)", text)
+        if match:
+            matches.append((match.start(), marker))
+    if matches:
+        index, _marker = min(matches, key=lambda item: item[0])
+        text = text[index:].strip()
 
     if text.lower().startswith("jedis"):
         text = text[5:].strip()

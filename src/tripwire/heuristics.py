@@ -35,6 +35,22 @@ def doctrine_supports_ai_cost_controls(text: str) -> bool:
     )
 
 
+def diff_updates_tripwire_local_ui_doctrine(added_lines: str) -> bool:
+    lowered = added_lines.lower()
+    return (
+        ("local control panel" in lowered or "local ui" in lowered)
+        and ("acceptable" in lowered or "out-of-the-box local project helper" in lowered)
+    )
+
+
+def diff_updates_tripwire_local_storage_doctrine(added_lines: str) -> bool:
+    lowered = added_lines.lower()
+    return (
+        ("local memory" in lowered or "local storage" in lowered or "sqlite" in lowered)
+        and ("acceptable" in lowered or "review quality" in lowered or "feedback" in lowered)
+    )
+
+
 def local_findings(review_input: ReviewInput) -> list[Finding]:
     diff = review_input.diff
     findings: list[Finding] = []
@@ -47,8 +63,12 @@ def local_findings(review_input: ReviewInput) -> list[Finding]:
         line[1:] for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++")
     )
 
-    if doctrine_supports_cli_mvp_limits(doctrine) and re.search(
+    if (
+        doctrine_supports_cli_mvp_limits(doctrine)
+        and not diff_updates_tripwire_local_ui_doctrine(added_lines)
+        and re.search(
         r"\b(fastapi|flask|django|react|vite|next|dashboard|websocket)\b", added_lines, re.I
+        )
     ):
         findings.append(
             Finding(
@@ -87,8 +107,12 @@ def local_findings(review_input: ReviewInput) -> list[Finding]:
             )
         )
 
-    if doctrine_supports_database_mvp_limit(doctrine) and re.search(
+    if (
+        doctrine_supports_database_mvp_limit(doctrine)
+        and not diff_updates_tripwire_local_storage_doctrine(added_lines)
+        and re.search(
         r"\b(sqlalchemy|postgres|sqlite|migration|alembic|database|redis)\b", added_lines, re.I
+        )
     ):
         findings.append(
             Finding(
