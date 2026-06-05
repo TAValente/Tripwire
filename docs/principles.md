@@ -39,3 +39,5 @@ When evidence is thin, Tripwire should prefer a Concrete Improver that asks for 
 When Tripwire has no high-confidence finding but sees a low-confidence concern that could improve its future judgment, it may ask a calibration question. The question should be clearly framed as judgment training, not as a blocking concern.
 
 False positives should improve judgment, not create hidden blindspots. Tripwire should learn from explicit feedback states before adding deterministic suppression rules.
+
+A suppressed finding is allowed when it helps the user see what Tripwire considered and why it stayed silent. It must not become a back door for noisy low-confidence review comments.

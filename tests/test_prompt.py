@@ -25,11 +25,14 @@ class PromptTests(unittest.TestCase):
         self.assertIn("author friction without a clear project payoff", prompt)
         self.assertIn("Final answer only", prompt)
         self.assertIn("Do not output hidden reasoning", prompt)
-        self.assertIn("If the change is beneficial or harmless, do not summarize it", prompt)
+        self.assertIn("If the change is beneficial or harmless and has no useful near-miss", prompt)
         self.assertIn("Do not flag unused functions", prompt)
         self.assertIn("caused or materially worsened by this diff", prompt)
         self.assertIn("Evidence must cite what changed", prompt)
         self.assertIn("Do not flag AI economics merely because", prompt)
+        self.assertIn("Suppressed Finding", prompt)
+        self.assertIn("highest-severity near-miss", prompt)
+        self.assertIn("Do not invent one", prompt)
 
     def test_project_scan_prompt_prioritizes_doctrine_conflicts(self):
         review_input = ReviewInput(

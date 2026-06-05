@@ -160,6 +160,8 @@ Run a project scan:
 
 Project scan is not tied to one PR. It looks for longer-running drift, especially doctrine inconsistencies, doctrine conflicts, stale phase assumptions, and architecture/economics contradictions.
 
+When Tripwire has no high-confidence finding, it may include one `Suppressed Finding` as a calibration signal. Suppressed findings are non-blocking near-misses, not review findings.
+
 Run the local control panel:
 
 ```powershell

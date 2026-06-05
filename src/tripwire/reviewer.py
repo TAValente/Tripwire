@@ -18,7 +18,7 @@ def clean_ai_output(output: str) -> str:
     text = re.sub(r"(?is)</?think>", "", text).strip()
     text = re.sub(r"(?is)^thinking\.\.\..*?\.\.\.done thinking\.\s*", "", text).strip()
 
-    allowed_starts = ("Mistakes to Correct", "Concrete Improvers", NO_FINDINGS)
+    allowed_starts = ("Mistakes to Correct", "Concrete Improvers", NO_FINDINGS, "Suppressed Finding")
     matches: list[tuple[int, str]] = []
     for marker in allowed_starts:
         match = re.search(rf"(?m)^{re.escape(marker)}(?:\s*$|\s*\n)", text)
@@ -33,6 +33,9 @@ def clean_ai_output(output: str) -> str:
 
     if not text.startswith(allowed_starts):
         return NO_FINDINGS
+
+    if text.startswith("Suppressed Finding"):
+        return f"{NO_FINDINGS}\n\n{text}"
 
     return text or NO_FINDINGS
 

@@ -50,6 +50,14 @@ class ReviewerTests(unittest.TestCase):
 
         self.assertEqual(output, "Mistakes to Correct\nTitle: Real issue")
 
+    def test_clean_ai_output_prefixes_suppressed_finding_without_findings(self):
+        output = clean_ai_output("Suppressed Finding\nTitle: Possible issue\nSeverity If True: 3")
+
+        self.assertEqual(
+            output,
+            "No high-confidence strategic findings detected.\n\nSuppressed Finding\nTitle: Possible issue\nSeverity If True: 3",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

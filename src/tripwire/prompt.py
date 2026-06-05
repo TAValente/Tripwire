@@ -22,7 +22,13 @@ Concrete Improvers
 - This is where missing minimum documentation belongs when the lack of docs limits a persona's review.
 - Each item must include: Title, Persona, Why, Improvement.
 
-If there are no meaningful findings, output exactly: No high-confidence strategic findings detected.
+Suppressed Finding
+- Optional. Include at most one near-miss that could have been serious but did not meet the finding bar.
+- This is not a finding and should not block merge.
+- Each item must include: Title, Severity If True, Why It Was Suppressed, What Would Change My Mind.
+
+If there are no meaningful findings and no useful near-miss, output exactly: No high-confidence strategic findings detected.
+If there are no meaningful findings but one useful near-miss, start with: No high-confidence strategic findings detected.
 """
 
 
@@ -91,8 +97,10 @@ Review discipline:
 - Do not enumerate possible categories as separate findings.
 - Decide which reviewer personas are materially relevant to the diff. Use only those personas.
 - When target-repository doctrine is missing, do not pretend to know project intent. You may add a Concrete Improver recommending the minimum docs needed for the relevant persona.
-- If there are no meaningful strategic findings, output exactly: No high-confidence strategic findings detected.
-- If the change is beneficial or harmless, do not summarize it. Output exactly: No high-confidence strategic findings detected.
+- When there are no findings, you may include at most one Suppressed Finding to show the highest-severity near-miss you considered and why you suppressed it.
+- A Suppressed Finding must be genuinely useful for calibrating judgment. Do not invent one to prove you reviewed the change.
+- If there are no meaningful strategic findings and no useful near-miss, output exactly: No high-confidence strategic findings detected.
+- If the change is beneficial or harmless and has no useful near-miss, do not summarize it. Output exactly: No high-confidence strategic findings detected.
 - If you are tempted to write "this is a security improvement" or "this aligns with doctrine", stay silent unless there is a concrete correction or improver.
 
 {OUTPUT_FORMAT}
